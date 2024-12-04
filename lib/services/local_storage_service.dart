@@ -146,7 +146,7 @@
 //     return await db.query('friends', where: 'userId = ?', whereArgs: [userId]);
 //   }
 
-//   Future<int> deleteFriend(int userId, int friendId) async {
+//   Future<int> deleteFriend(int userId, int friendId) async 
 //     final db = await database;
 //     return await db.delete('friends',
 //         where: 'userId = ? AND friendId = ?', whereArgs: [userId, friendId]);
