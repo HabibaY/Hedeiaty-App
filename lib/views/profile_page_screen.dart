@@ -42,7 +42,7 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),

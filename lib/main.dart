@@ -5,12 +5,16 @@ import 'views/event_list_screen.dart';
 import 'views/friend_gift_list_screen.dart';
 import 'views/gift_list_screen.dart';
 import 'views/home_screen.dart';
+import 'views/loading_screen.dart'; // Import Loading Screen
 import 'views/sign_in_screen.dart'; // Updated import for sign-in
 import 'views/profile_page_screen.dart';
 import 'views/pledged_gifts_screen.dart';
 import 'views/sign_up_screen.dart'; // Updated import for sign-up
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -28,18 +32,20 @@ class MyApp extends StatelessWidget {
       ),
       home: const WelcomeScreen(), // Set WelcomeScreen as the entry point
       routes: {
-        '/home': (context) => HomeScreen(),
-        '/login': (context) => SignInScreen(), // Changed to SignInScreen
-        '/register': (context) => SignUpScreen(), // Changed to SignUpScreen
-        '/profile': (context) => ProfilePageScreen(),
-        '/createEvent': (context) => CreateEditEventScreen(),
-        '/editEvent': (context) => CreateEditEventScreen(),
-        '/eventList': (context) => EventListScreen(),
-        '/giftList': (context) => GiftListScreen(),
-        '/friendGiftList': (context) => FriendGiftListScreen(),
-        '/pledgedGifts': (context) => PledgedGiftsScreen(),
-        '/createGift': (context) => CreateEditGiftScreen(),
-        '/editGift': (context) => CreateEditGiftScreen()
+        '/home': (context) => const HomeScreen(),
+        '/loading': (context) => const LoadingScreen(), // Add this route
+        '/login': (context) => const SignInScreen(), // Changed to SignInScreen
+        '/register': (context) =>
+            const SignUpScreen(), // Changed to SignUpScreen
+        '/profile': (context) => const ProfilePageScreen(),
+        '/createEvent': (context) => const CreateEditEventScreen(),
+        '/editEvent': (context) => const CreateEditEventScreen(),
+        '/eventList': (context) => const EventListScreen(),
+        '/giftList': (context) => const GiftListScreen(),
+        '/friendGiftList': (context) => const FriendGiftListScreen(),
+        '/pledgedGifts': (context) => const PledgedGiftsScreen(),
+        '/createGift': (context) => const CreateEditGiftScreen(),
+        '/editGift': (context) => const CreateEditGiftScreen(),
       },
     );
   }
@@ -58,7 +64,7 @@ class WelcomeScreen extends StatelessWidget {
             height: MediaQuery.of(context).size.height,
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/app2.jpg'), // Full background image
+                image: AssetImage('assets/logo.jpg'), // Full background image
                 fit: BoxFit.cover,
               ),
             ),
@@ -70,11 +76,11 @@ class WelcomeScreen extends StatelessWidget {
                 Colors.black.withOpacity(0.3), // Dark overlay with 30% opacity
           ),
           // Welcome Header Text at the top
-          Positioned(
+          const Positioned(
             top: 80, // Move the text closer to the top
             left: 24,
             right: 24,
-            child: const Text(
+            child: Text(
               'Welcome to Hedeiaty app!',
               style: TextStyle(
                 fontSize: 32,
@@ -105,7 +111,7 @@ class WelcomeScreen extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pushNamed(
-                        context, '/home'); // Navigate to SignUpScreen
+                        context, '/register'); // Navigate to SignUpScreen
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor:

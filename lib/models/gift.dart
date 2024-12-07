@@ -1,11 +1,11 @@
 class Gift {
-  int? id;
-  String name;
-  String description;
-  String category;
-  double price;
-  String status;
-  int eventId;
+  final int? id;
+  final String name;
+  final String description;
+  final String category;
+  final double price;
+  final bool status; // Changed to boolean
+  final int eventId;
 
   Gift({
     this.id,
@@ -17,7 +17,7 @@ class Gift {
     required this.eventId,
   });
 
-  // Convert Gift instance to a Map (for inserting into database)
+  // Convert to Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -25,20 +25,20 @@ class Gift {
       'description': description,
       'category': category,
       'price': price,
-      'status': status,
+      'status': status ? 1 : 0, // Convert boolean to integer
       'eventId': eventId,
     };
   }
 
-  // Convert a Map into a Gift instance
-  factory Gift.fromMap(Map<String, dynamic> map) {
+  // Convert from Map
+  static Gift fromMap(Map<String, dynamic> map) {
     return Gift(
       id: map['id'],
       name: map['name'],
       description: map['description'],
       category: map['category'],
       price: map['price'],
-      status: map['status'],
+      status: map['status'] == 1, // Convert integer to boolean
       eventId: map['eventId'],
     );
   }

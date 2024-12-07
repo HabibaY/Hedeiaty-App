@@ -122,7 +122,7 @@ class _EventListScreenState extends State<EventListScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CreateEditEventScreen(),
+                    builder: (context) => const CreateEditEventScreen(),
                   ),
                 );
               },

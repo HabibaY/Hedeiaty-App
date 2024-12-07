@@ -31,8 +31,9 @@ dependencies:
   flutter:
     sdk: flutter
   table_calendar: ^3.0.6
-  # sqflite: ^2.3.2
-  # path: ^1.8.3
+  crypto: ^3.0.0
+  sqflite: ^2.3.2
+  path: ^1.8.3
   # contacts_service: ^0.6.3
   # permission_handler: ^10.0.0
 
@@ -70,6 +71,9 @@ flutter:
   - assets/app.jpg
   - assets/app2.jpg
   - assets/woman1.jpg
+  - assets/logo.jpg
+  - assets/rb_24638.png
+  - assets/loading.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

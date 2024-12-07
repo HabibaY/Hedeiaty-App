@@ -1,5 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert'; // For utf8 encoding
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/local_storage_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -11,21 +15,112 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  bool allowNotifications = true; // Default value for notifications toggle
   String? errorMessage;
+  final LocalStorageService localStorageService = LocalStorageService();
 
   Future<void> signUp() async {
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // Validate input fields
+      if (!RegExp(r"^[a-zA-Z0-9]+@[a-zA-Z]+\.[a-zA-Z]+")
+          .hasMatch(emailController.text)) {
+        setState(() {
+          errorMessage = "Invalid email format.";
+        });
+        return;
+      }
+
+      if (passwordController.text.length < 6) {
+        setState(() {
+          errorMessage = "Password must be at least 6 characters long.";
+        });
+        return;
+      }
+
+      if (!RegExp(r'^[0-9]+$').hasMatch(phoneNumberController.text) ||
+          phoneNumberController.text.length != 11) {
+        setState(() {
+          errorMessage = "Invalid phone number. Must be 11 digits.";
+        });
+        return;
+      }
+
+      // Register the user in Firebase Authentication
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: emailController.text,
         password: passwordController.text,
       );
-      Navigator.pushReplacementNamed(context, '/home');
+
+      // Get Firebase UID
+      final String firebaseUid = userCredential.user!.uid;
+
+      // Delete the local database to reset it
+      await localStorageService.deleteDatabaseFile();
+
+      // Reinitialize the local database
+      final db = await localStorageService.database;
+
+      // Hash the password using SHA-256
+      String hashedPassword =
+          sha256.convert(utf8.encode(passwordController.text)).toString();
+
+      // Insert user into the local database and fetch the local ID
+      int localUserId = await localStorageService.insertUser({
+        'name': usernameController.text,
+        'email': emailController.text,
+        'phoneNumber': phoneNumberController.text,
+        'notificationsEnabled': allowNotifications ? 1 : 0,
+        'password': hashedPassword,
+      });
+
+      // Store user in Firestore, including the local ID and Firebase UID
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(firebaseUid)
+          .set({
+        'name': usernameController.text,
+        'email': emailController.text,
+        'phoneNumber': phoneNumberController.text,
+        'notificationsEnabled': allowNotifications,
+        'localId': localUserId, // Store the local ID
+        'password': hashedPassword,
+      });
+
+      // Show success message
+      _showSnackbar("Sign-up successful!");
+
+      // Navigate to the loading screen
+      Navigator.pushReplacementNamed(context, '/loading');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        setState(() {
+          errorMessage = "Email is already in use.";
+        });
+      } else if (e.code == 'weak-password') {
+        setState(() {
+          errorMessage = "The password provided is too weak.";
+        });
+      } else {
+        setState(() {
+          errorMessage = "Authentication error: ${e.message}";
+        });
+      }
     } catch (e) {
       setState(() {
-        errorMessage = e.toString();
+        errorMessage = "An unexpected error occurred: $e";
       });
     }
+  }
+
+  void _showSnackbar(String message) {
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.green,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   @override
@@ -44,15 +139,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 bottomRight: Radius.circular(40),
               ),
               child: Container(
-                height: MediaQuery.of(context).size.height *
-                    0.4, // Adjust height as needed
+                height: MediaQuery.of(context).size.height * 0.35,
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage('assets/app.jpg'),
+                    image: const AssetImage('assets/app.jpg'),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
-                      Colors.black
-                          .withOpacity(0.3), // Fading effect using opacity
+                      Colors.black.withOpacity(0.3),
                       BlendMode.darken,
                     ),
                   ),
@@ -60,157 +153,143 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             ),
           ),
-          // Back Button on top of the image
+          // Back Button
           Positioned(
             top: 40,
             left: 16,
-            child: Material(
-              color: Colors.transparent,
-              elevation: 8.0, // Elevate to ensure it’s at the topmost layer
-              shape: const CircleBorder(),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(25),
-                onTap: () {
-                  // Navigate back to the previous screen
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white, // White background to make it distinct
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 5,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.green,
-                    size: 28,
-                  ),
-                ),
-              ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+              onPressed: () {
+                Navigator.pop(context); // Navigate back to the previous screen
+              },
             ),
           ),
-          // Form Container and other UI elements
+          // Form and UI elements
           Positioned(
-            top: MediaQuery.of(context).size.height *
-                0.35, // Adjusted positioning
+            top: MediaQuery.of(context).size.height * 0.3,
             left: 24,
             right: 24,
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Form Container with padding and white background
+                  // Compressed Form Container
                   Container(
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min, // Compress the height
                       children: [
-                        // Create Account Title
                         const Text(
                           'Create Account',
                           style: TextStyle(
-                            fontSize: 28,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         // Username TextField
                         TextField(
                           controller: usernameController,
                           decoration: InputDecoration(
                             labelText: 'Username',
-                            labelStyle: const TextStyle(color: Colors.grey),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 15),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              borderSide: BorderSide.none,
+                              borderRadius: BorderRadius.circular(20),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 10),
                         // Email TextField
                         TextField(
                           controller: emailController,
                           decoration: InputDecoration(
                             labelText: 'Email',
-                            labelStyle: const TextStyle(color: Colors.grey),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 15),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              borderSide: BorderSide.none,
+                              borderRadius: BorderRadius.circular(20),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 10),
+                        // Phone Number TextField
+                        TextField(
+                          controller: phoneNumberController,
+                          decoration: InputDecoration(
+                            labelText: 'Phone Number',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         // Password TextField
                         TextField(
                           controller: passwordController,
                           obscureText: true,
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            labelStyle: const TextStyle(color: Colors.grey),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 15),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              borderSide: BorderSide.none,
+                              borderRadius: BorderRadius.circular(20),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 16),
+                        // Allow Notifications Toggle
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Allow Notifications for Gift Pledges',
+                                style: TextStyle(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Switch(
+                              value: allowNotifications,
+                              onChanged: (value) {
+                                setState(() {
+                                  allowNotifications = value;
+                                });
+                              },
+                              activeColor: Colors.pinkAccent,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
                         // Create Account Button
                         ElevatedButton(
                           onPressed: signUp,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.pinkAccent,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 80, vertical: 20),
+                                horizontal: 80, vertical: 15),
                           ),
                           child: const Text(
                             'Create Account',
-                            style: TextStyle(fontSize: 18, color: Colors.white),
+                            style: TextStyle(fontSize: 16, color: Colors.white),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   // Already have an account link
                   Center(
-                    child: TextButton(
-                      onPressed: () {
-                        // Navigate to SignInScreen
+                    child: GestureDetector(
+                      onTap: () {
                         Navigator.pushReplacementNamed(context, '/login');
                       },
                       child: const Text(
                         'Already have an account? Sign In',
                         style:
-                            TextStyle(color: Colors.pinkAccent, fontSize: 16),
+                            TextStyle(color: Colors.pinkAccent, fontSize: 14),
                       ),
                     ),
                   ),

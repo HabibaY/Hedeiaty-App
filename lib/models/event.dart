@@ -1,11 +1,12 @@
 class Event {
-  int? id;
-  String name;
-  String date;
-  String location;
-  String description;
-  String category;
-  int userId;
+  final int? id;
+  final String name;
+  final String date;
+  final String location;
+  final String description;
+  final String category;
+  final String status;
+  final int userId;
 
   Event({
     this.id,
@@ -14,10 +15,11 @@ class Event {
     required this.location,
     required this.description,
     required this.category,
+    required this.status,
     required this.userId,
   });
 
-  // Convert Event instance to a Map (for inserting into database)
+  // Convert to Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -26,12 +28,13 @@ class Event {
       'location': location,
       'description': description,
       'category': category,
+      'status': status,
       'userId': userId,
     };
   }
 
-  // Convert a Map into an Event instance
-  factory Event.fromMap(Map<String, dynamic> map) {
+  // Convert from Map
+  static Event fromMap(Map<String, dynamic> map) {
     return Event(
       id: map['id'],
       name: map['name'],
@@ -39,6 +42,7 @@ class Event {
       location: map['location'],
       description: map['description'],
       category: map['category'],
+      status: map['status'],
       userId: map['userId'],
     );
   }

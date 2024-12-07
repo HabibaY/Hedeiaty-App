@@ -1,11 +1,13 @@
+import 'dart:convert'; // Required for UTF8 encoding
+import 'package:crypto/crypto.dart'; // Required for hashing
+
 class User {
-  int? id;
-  String name;
-  String email;
-  String phoneNumber;
-  bool notificationsEnabled;
-  String password;
-  String preferences;
+  final int? id;
+  final String name;
+  final String email;
+  final String phoneNumber;
+  final bool notificationsEnabled;
+  final String password; // Already hashed when passed to the model
 
   User({
     this.id,
@@ -14,32 +16,35 @@ class User {
     required this.phoneNumber,
     required this.notificationsEnabled,
     required this.password,
-    required this.preferences,
   });
 
-  // Convert User instance to a Map (for inserting into database)
+  // Convert to Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
       'email': email,
       'phoneNumber': phoneNumber,
-      'notificationsEnabled': notificationsEnabled ? 1 : 0,
-      'password': password,
-      'preferences': preferences,
+      'notificationsEnabled': notificationsEnabled ? 1 : 0, // Boolean to int
+      'password': password, // Already hashed
     };
   }
 
-  // Convert a Map into a User instance
-  factory User.fromMap(Map<String, dynamic> map) {
+  // Convert from Map
+  static User fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'],
       name: map['name'],
       email: map['email'],
       phoneNumber: map['phoneNumber'],
-      notificationsEnabled: map['notificationsEnabled'] == 1,
-      password: map['password'],
-      preferences: map['preferences'],
+      notificationsEnabled: map['notificationsEnabled'] == 1, // Int to bool
+      password: map['password'], // Already hashed
     );
+  }
+
+  // Static method to hash password
+  static String hashPassword(String password) {
+    final bytes = utf8.encode(password); // Convert to bytes
+    return sha256.convert(bytes).toString(); // Hash and convert to string
   }
 }

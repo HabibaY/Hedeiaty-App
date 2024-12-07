@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Larger Profile Picture
-                  CircleAvatar(
+                  const CircleAvatar(
                     backgroundImage: AssetImage('assets/woman1.jpg'),
                     radius: 40, // Increased size of the profile picture
                   ),
@@ -60,13 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: TextField(
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Search friend',
-                        prefixIcon:
-                            const Icon(Icons.search, color: Colors.purple),
+                        prefixIcon: Icon(Icons.search, color: Colors.purple),
                         border: InputBorder.none,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        contentPadding: EdgeInsets.symmetric(vertical: 12),
                       ),
                       onSubmitted: (value) {
                         // Perform search and navigate to FriendGiftListScreen if found
@@ -111,11 +109,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       // Floating Action Button to Access Contacts
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: const FloatingActionButton(
         onPressed:
             null, //_requestContactPermission, // Request permission before accessing contacts
         backgroundColor: Colors.purple, // Change FAB color to match the theme
-        child: const Icon(Icons.add),
+        child: Icon(Icons.add),
       ),
       // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
