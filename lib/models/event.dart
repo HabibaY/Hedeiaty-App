@@ -5,8 +5,7 @@ class Event {
   final String location;
   final String description;
   final String category;
-  final String status;
-  final int userId;
+  final String userId;
 
   Event({
     this.id,
@@ -15,7 +14,6 @@ class Event {
     required this.location,
     required this.description,
     required this.category,
-    required this.status,
     required this.userId,
   });
 
@@ -28,7 +26,6 @@ class Event {
       'location': location,
       'description': description,
       'category': category,
-      'status': status,
       'userId': userId,
     };
   }
@@ -42,7 +39,6 @@ class Event {
       location: map['location'],
       description: map['description'],
       category: map['category'],
-      status: map['status'],
       userId: map['userId'],
     );
   }

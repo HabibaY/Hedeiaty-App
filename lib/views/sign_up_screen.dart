@@ -1,12 +1,13 @@
 import 'package:crypto/crypto.dart';
-import 'dart:convert'; // For utf8 encoding
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../services/local_storage_service.dart';
+import '../storage/firebase_auth.dart'; // FirebaseAuthService for authentication
+import '../storage/local_storage_service.dart'; // Local storage service
+import '../providers/user_provider.dart'; // UserProvider for managing userId
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({Key? key}) : super(key: key);
+  const SignUpScreen({super.key});
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -17,9 +18,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final FirebaseAuthService _authService =
+      FirebaseAuthService(); // FirebaseAuthService instance
+  final LocalStorageService localStorageService = LocalStorageService();
   bool allowNotifications = true; // Default value for notifications toggle
   String? errorMessage;
-  final LocalStorageService localStorageService = LocalStorageService();
+
+  // Hash password without utf8 dependency
+  String hashPassword(String password) {
+    final passwordBytes = password.codeUnits; // Convert string to raw bytes
+    return sha256.convert(passwordBytes).toString(); // Hash the password
+  }
 
   Future<void> signUp() async {
     try {
@@ -47,66 +56,47 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return;
       }
 
-      // Register the user in Firebase Authentication
-      final UserCredential userCredential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // Firebase Authentication Sign-Up
+      final user = await _authService.signUpWithEmailPassword(
         email: emailController.text,
         password: passwordController.text,
       );
 
-      // Get Firebase UID
-      final String firebaseUid = userCredential.user!.uid;
+      if (user != null) {
+        // Hash the password
+        String hashedPassword = hashPassword(passwordController.text);
 
-      // Delete the local database to reset it
-      await localStorageService.deleteDatabaseFile();
+        // Reset and reinitialize the local database
+        await localStorageService.deleteDatabaseFile();
+        final db = await localStorageService.database;
 
-      // Reinitialize the local database
-      final db = await localStorageService.database;
-
-      // Hash the password using SHA-256
-      String hashedPassword =
-          sha256.convert(utf8.encode(passwordController.text)).toString();
-
-      // Insert user into the local database and fetch the local ID
-      int localUserId = await localStorageService.insertUser({
-        'name': usernameController.text,
-        'email': emailController.text,
-        'phoneNumber': phoneNumberController.text,
-        'notificationsEnabled': allowNotifications ? 1 : 0,
-        'password': hashedPassword,
-      });
-
-      // Store user in Firestore, including the local ID and Firebase UID
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(firebaseUid)
-          .set({
-        'name': usernameController.text,
-        'email': emailController.text,
-        'phoneNumber': phoneNumberController.text,
-        'notificationsEnabled': allowNotifications,
-        'localId': localUserId, // Store the local ID
-        'password': hashedPassword,
-      });
-
-      // Show success message
-      _showSnackbar("Sign-up successful!");
-
-      // Navigate to the loading screen
-      Navigator.pushReplacementNamed(context, '/loading');
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'email-already-in-use') {
-        setState(() {
-          errorMessage = "Email is already in use.";
+        // Insert user into the local database
+        int localUserId = await localStorageService.insertUser({
+          'uid': user.uid,
+          'name': usernameController.text,
+          'email': emailController.text,
+          'phoneNumber': phoneNumberController.text,
+          'notificationsEnabled': allowNotifications ? 1 : 0,
+          'password': hashedPassword,
         });
-      } else if (e.code == 'weak-password') {
-        setState(() {
-          errorMessage = "The password provided is too weak.";
+
+        // Store user in Firestore
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'name': usernameController.text,
+          'email': emailController.text,
+          'phoneNumber': phoneNumberController.text,
+          'notificationsEnabled': allowNotifications,
+          'localId': localUserId,
+          'password': hashedPassword,
         });
-      } else {
-        setState(() {
-          errorMessage = "Authentication error: ${e.message}";
-        });
+        // Save userId in UserProvider
+        Provider.of<UserProvider>(context, listen: false).setUserId(user.uid);
+
+        // Show success message
+        _showSnackbar("Sign-up successful!");
+
+        // Navigate to the loading screen
+        Navigator.pushReplacementNamed(context, '/loading');
       }
     } catch (e) {
       setState(() {
@@ -128,7 +118,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Top image with fading effect and rounded top corners
+          // Top image with fading effect and rounded corners
           Positioned(
             top: 0,
             left: 0,
@@ -160,7 +150,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             child: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
               onPressed: () {
-                Navigator.pop(context); // Navigate back to the previous screen
+                Navigator.pop(context); // Navigate back
               },
             ),
           ),
@@ -173,7 +163,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Compressed Form Container
+                  // Form Container
                   Container(
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(

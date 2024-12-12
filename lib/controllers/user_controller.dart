@@ -1,13 +1,14 @@
 import '../models/user.dart';
-import '../services/local_storage_service.dart';
+import '../storage/local_storage_service.dart';
 
 class UserController {
   final LocalStorageService _localStorageService = LocalStorageService();
 
-  Future<void> addUser(String name, String email, String phoneNumber,
-      bool notificationsEnabled, String password) async {
+  Future<void> addUser(String uid, String name, String email,
+      String phoneNumber, bool notificationsEnabled, String password) async {
     String hashedPassword = User.hashPassword(password); // Hash the password
     User user = User(
+      uid: uid,
       name: name,
       email: email,
       phoneNumber: phoneNumber,

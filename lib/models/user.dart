@@ -1,8 +1,9 @@
-import 'dart:convert'; // Required for UTF8 encoding
+import 'dart:convert'; // Required for Base64 encoding
 import 'package:crypto/crypto.dart'; // Required for hashing
 
 class User {
   final int? id;
+  final String uid;
   final String name;
   final String email;
   final String phoneNumber;
@@ -11,6 +12,7 @@ class User {
 
   User({
     this.id,
+    required this.uid,
     required this.name,
     required this.email,
     required this.phoneNumber,
@@ -22,6 +24,7 @@ class User {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'uid': uid,
       'name': name,
       'email': email,
       'phoneNumber': phoneNumber,
@@ -34,6 +37,7 @@ class User {
   static User fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'],
+      uid: map['uid'],
       name: map['name'],
       email: map['email'],
       phoneNumber: map['phoneNumber'],
@@ -42,9 +46,11 @@ class User {
     );
   }
 
-  // Static method to hash password
+  // Static method to hash password using Base64
   static String hashPassword(String password) {
-    final bytes = utf8.encode(password); // Convert to bytes
-    return sha256.convert(bytes).toString(); // Hash and convert to string
+    final bytes = password.codeUnits; // Convert to a list of UTF-16 code units
+    final hashedBytes =
+        sha256.convert(bytes).bytes; // Hash the bytes using SHA-256
+    return base64Encode(hashedBytes); // Encode the hashed bytes in Base64
   }
 }

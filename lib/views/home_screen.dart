@@ -1,7 +1,6 @@
-// import 'package:contacts_service/contacts_service.dart';
-// import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
-import '../widgets/friend_list_item.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart'; // UserProvider for managing userId
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,32 +10,17 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Future<void> _requestContactPermission() async {
-  //   // Check if the permission is already granted
-  //   if (await Permission.contacts.request().isGranted) {
-  //     // Permission is granted; proceed to get contacts.
-  //     Iterable<Contact> contacts = await ContactsService.getContacts();
-  //     print('Contacts retrieved: ${contacts.length}');
-  //     // You can handle the contacts (e.g., display or use them)
-  //   } else {
-  //     // Handle denied permission
-  //     print('Permission denied');
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
+    final userId = Provider.of<UserProvider>(context).userId;
     return Scaffold(
-      // Main Body with Custom Top Section
       body: Column(
         children: [
-          // Top section with background color and larger profile picture
           Container(
             width: double.infinity,
-            height: MediaQuery.of(context).size.height *
-                0.3, // Takes 30% of the height
+            height: MediaQuery.of(context).size.height * 0.3,
             decoration: const BoxDecoration(
-              color: Color(0xFFE1BEE7), // Light purple color to match the theme
+              color: Color(0xFFE1BEE7),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(40),
                 bottomRight: Radius.circular(40),
@@ -47,13 +31,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Larger Profile Picture
                   const CircleAvatar(
                     backgroundImage: AssetImage('assets/woman1.jpg'),
-                    radius: 40, // Increased size of the profile picture
+                    radius: 40,
                   ),
                   const SizedBox(height: 20),
-                  // Search Bar Section
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -67,7 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         contentPadding: EdgeInsets.symmetric(vertical: 12),
                       ),
                       onSubmitted: (value) {
-                        // Perform search and navigate to FriendGiftListScreen if found
                         if (value.isNotEmpty) {
                           Navigator.pushNamed(context, '/friendGiftList');
                         }
@@ -79,13 +60,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          // Create Your Own Event/List Button
           ElevatedButton(
             onPressed: () {
-              Navigator.pushNamed(context, '/createEvent');
+              Navigator.pushNamed(context, '/eventList');
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple, // Button color to match theme
+              backgroundColor: Colors.purple,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
@@ -97,7 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          // Friend List Display
           const Expanded(
             child: Center(
               child: Text(
@@ -108,30 +87,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      // Floating Action Button to Access Contacts
-      floatingActionButton: const FloatingActionButton(
-        onPressed:
-            null, //_requestContactPermission, // Request permission before accessing contacts
-        backgroundColor: Colors.purple, // Change FAB color to match the theme
-        child: Icon(Icons.add),
-      ),
-      // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Colors.purple,
         unselectedItemColor: Colors.grey,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'Events',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+              icon: Icon(Icons.calendar_today), label: 'Events'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         onTap: (index) {
           switch (index) {

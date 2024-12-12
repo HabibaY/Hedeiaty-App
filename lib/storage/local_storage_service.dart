@@ -24,54 +24,51 @@ class LocalStorageService {
       path,
       version: 1,
       onCreate: (db, version) async {
-        print("Creating users table...");
+        print("Creating tables...");
         await db.execute('''
-        CREATE TABLE users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT,
-          email TEXT,
-          phoneNumber TEXT,
-          notificationsEnabled INTEGER,
-          password TEXT
-        )
-      ''');
-        print("Users table created successfully.");
-
-        print("Creating other tables...");
+          CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT UNIQUE,
+            name TEXT,
+            email TEXT,
+            phoneNumber TEXT,
+            notificationsEnabled INTEGER,
+            password TEXT
+          )
+        ''');
         await db.execute('''
-        CREATE TABLE events (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT,
-          date TEXT,
-          location TEXT,
-          description TEXT,
-          category TEXT,
-          status TEXT,
-          userId INTEGER,
-          FOREIGN KEY (userId) REFERENCES users(id)
-        )
-      ''');
+          CREATE TABLE events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            date TEXT,
+            location TEXT,
+            description TEXT,
+            category TEXT,
+            userId TEXT,
+            FOREIGN KEY (userId) REFERENCES users(id)
+          )
+        ''');
         await db.execute('''
-        CREATE TABLE gifts (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT,
-          description TEXT,
-          category TEXT,
-          price REAL,
-          status INTEGER,
-          eventId INTEGER,
-          FOREIGN KEY (eventId) REFERENCES events(id)
-        )
-      ''');
+          CREATE TABLE gifts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            description TEXT,
+            category TEXT,
+            price REAL,
+            status INTEGER,
+            eventId INTEGER,
+            FOREIGN KEY (eventId) REFERENCES events(uid)
+          )
+        ''');
         await db.execute('''
-        CREATE TABLE friends (
-          userId INTEGER,
-          friendId INTEGER,
-          PRIMARY KEY (userId, friendId),
-          FOREIGN KEY (userId) REFERENCES users (id),
-          FOREIGN KEY (friendId) REFERENCES users (id)
-        )
-      ''');
+          CREATE TABLE friends (
+            userId INTEGER,
+            friendId INTEGER,
+            PRIMARY KEY (userId, friendId),
+            FOREIGN KEY (userId) REFERENCES users (id),
+            FOREIGN KEY (friendId) REFERENCES users (id)
+          )
+        ''');
         print("All tables created successfully.");
       },
     );
@@ -80,7 +77,6 @@ class LocalStorageService {
   // User CRUD Operations
   Future<int> insertUser(Map<String, dynamic> user) async {
     final db = await database;
-    print("Inserting user into database...");
     return await db.insert('users', user);
   }
 
@@ -111,9 +107,16 @@ class LocalStorageService {
     return await db.query('events');
   }
 
-  Future<List<Map<String, dynamic>>> getEventsForUser(int userId) async {
+  Future<List<Map<String, dynamic>>> getEventsForUser(String userId) async {
     final db = await database;
     return await db.query('events', where: 'userId = ?', whereArgs: [userId]);
+  }
+
+  Future<Map<String, dynamic>?> getEventById(int eventId) async {
+    final db = await database;
+    List<Map<String, dynamic>> result =
+        await db.query('events', where: 'id = ?', whereArgs: [eventId]);
+    return result.isNotEmpty ? result.first : null;
   }
 
   Future<int> updateEvent(Map<String, dynamic> event) async {
@@ -122,9 +125,9 @@ class LocalStorageService {
         .update('events', event, where: 'id = ?', whereArgs: [event['id']]);
   }
 
-  Future<int> deleteEvent(int id) async {
+  Future<int> deleteEvent(int eventId) async {
     final db = await database;
-    return await db.delete('events', where: 'id = ?', whereArgs: [id]);
+    return await db.delete('events', where: 'id = ?', whereArgs: [eventId]);
   }
 
   // Gift CRUD Operations
@@ -143,6 +146,13 @@ class LocalStorageService {
     return await db.query('gifts', where: 'eventId = ?', whereArgs: [eventId]);
   }
 
+  Future<Map<String, dynamic>?> getGiftById(int giftId) async {
+    final db = await database;
+    List<Map<String, dynamic>> result =
+        await db.query('gifts', where: 'id = ?', whereArgs: [giftId]);
+    return result.isNotEmpty ? result.first : null;
+  }
+
   Future<int> updateGift(Map<String, dynamic> gift) async {
     final db = await database;
     return await db
@@ -154,6 +164,21 @@ class LocalStorageService {
     return await db.delete('gifts', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<List<Map<String, dynamic>>> getGiftsByStatusForEvent(
+      int eventId, int status) async {
+    final db = await database;
+    return await db.query('gifts',
+        where: 'eventId = ? AND status = ?', whereArgs: [eventId, status]);
+  }
+
+  Future<int> countGiftsForEvent(int eventId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM gifts WHERE eventId = ?', [eventId]);
+    return result.first['count'] as int;
+  }
+
+  // Friend Operations
   Future<int> addFriend(int userId, int friendId) async {
     final db = await database;
     return await db.insert('friends', {'userId': userId, 'friendId': friendId});
@@ -187,7 +212,7 @@ class LocalStorageService {
     return result.isNotEmpty;
   }
 
-  // Add this method to delete the database
+  // Database Reset
   Future<void> deleteDatabaseFile() async {
     String path = join(await getDatabasesPath(), 'hedieaty.db');
     await deleteDatabase(path);
