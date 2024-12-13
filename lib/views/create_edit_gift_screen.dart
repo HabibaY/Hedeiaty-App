@@ -23,6 +23,7 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
   late TextEditingController _priceController;
   bool _isPledged = false; // Toggle status for the gift
   final GiftController _giftController = GiftController();
+  bool _isGiftPledged = false; // To check if the gift is pledged when editing
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
         _categoryController.text = gift.category ?? "";
         _priceController.text = gift.price.toString();
         _isPledged = gift.status;
+        _isGiftPledged = gift.status; // Set the initial pledged status
       });
     }
   }
@@ -65,6 +67,7 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
     }
 
     if (widget.giftId == null) {
+      // Add new gift
       await _giftController.addGift(
         name: name,
         description: description,
@@ -74,6 +77,7 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
         eventId: widget.eventId,
       );
     } else {
+      // Update existing gift
       final gift = Gift(
         id: widget.giftId,
         name: name,
@@ -105,6 +109,8 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditable = !_isGiftPledged; // Check if the gift can be edited
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.giftId != null ? "Edit Gift" : "Create Gift"),
@@ -116,22 +122,44 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
+                if (!isEditable)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Container(
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: const Text(
+                        "This gift is pledged and cannot be modified.",
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: "Gift Name"),
+                  enabled: isEditable, // Disable if pledged
                 ),
                 TextFormField(
                   controller: _descriptionController,
                   decoration: const InputDecoration(labelText: "Description"),
+                  enabled: isEditable, // Disable if pledged
                 ),
                 TextFormField(
                   controller: _categoryController,
                   decoration: const InputDecoration(labelText: "Category"),
+                  enabled: isEditable, // Disable if pledged
                 ),
                 TextFormField(
                   controller: _priceController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: "Price"),
+                  enabled: isEditable, // Disable if pledged
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -140,19 +168,22 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
                     const Text("Gift is Pledged"),
                     Switch(
                       value: _isPledged,
-                      onChanged: (value) {
-                        setState(() {
-                          _isPledged = value;
-                        });
-                      },
+                      onChanged: isEditable
+                          ? (value) {
+                              setState(() {
+                                _isPledged = value;
+                              });
+                            }
+                          : null, // Disable if pledged
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _saveGift,
+                  onPressed:
+                      isEditable ? _saveGift : null, // Disable if pledged
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
+                    backgroundColor: isEditable ? Colors.purple : Colors.grey,
                   ),
                   child: const Text(
                     "Save Gift",

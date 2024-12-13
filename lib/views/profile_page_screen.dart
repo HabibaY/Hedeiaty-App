@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart'; // Import UserProvider
+import '../storage/firebase_auth.dart'; // Import FirebaseAuthService
 
 class ProfilePageScreen extends StatefulWidget {
   const ProfilePageScreen({super.key});
@@ -8,7 +12,71 @@ class ProfilePageScreen extends StatefulWidget {
 }
 
 class _ProfilePageScreenState extends State<ProfilePageScreen> {
+  final FirebaseAuthService _authService = FirebaseAuthService();
   bool receiveGiftPledgeNotifications = true;
+  String userName = "User Name"; // Default user name
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final userId = Provider.of<UserProvider>(context, listen: false).userId;
+      if (userId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            userName = userDoc['name'] ?? "User Name";
+            receiveGiftPledgeNotifications =
+                userDoc['notificationsEnabled'] ?? true;
+          });
+        }
+      }
+    } catch (e) {
+      print("Error loading user data: $e");
+    }
+  }
+
+  Future<void> _updateNotifications(bool value) async {
+    try {
+      final userId = Provider.of<UserProvider>(context, listen: false).userId;
+      if (userId != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .update({'notificationsEnabled': value});
+        setState(() {
+          receiveGiftPledgeNotifications = value;
+        });
+      }
+    } catch (e) {
+      final snackBar =
+          SnackBar(content: Text('Failed to update notifications: $e'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      await _authService.signOut();
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login', // Replace with your login screen route
+        (route) => false,
+      );
+    } catch (e) {
+      final snackBar =
+          SnackBar(content: Text('Logout failed: ${e.toString()}'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,11 +85,10 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
         children: [
           // Top section for Profile Picture and Background
           Container(
-            height: MediaQuery.of(context).size.height *
-                0.35, // Takes 35% of the screen height
+            height: MediaQuery.of(context).size.height * 0.35,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.purple[300], // Purple theme background color
+              color: Colors.purple[300],
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(40),
                 bottomRight: Radius.circular(40),
@@ -35,8 +102,7 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
                   children: [
                     const CircleAvatar(
                       radius: 60,
-                      backgroundImage: AssetImage(
-                          'assets/woman1.jpg'), // Replace with your image asset
+                      backgroundImage: AssetImage('assets/woman1.jpg'),
                     ),
                     Positioned(
                       bottom: 0,
@@ -60,9 +126,9 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'User Name', // Replace with user's name
-                  style: TextStyle(
+                Text(
+                  userName,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -100,9 +166,7 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
                       trailing: Switch(
                         value: receiveGiftPledgeNotifications,
                         onChanged: (bool value) {
-                          setState(() {
-                            receiveGiftPledgeNotifications = value;
-                          });
+                          _updateNotifications(value);
                         },
                         activeColor: Colors.purple,
                       ),
@@ -126,9 +190,7 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.red),
                       title: const Text("Logout"),
-                      onTap: () {
-                        // Add logout logic
-                      },
+                      onTap: _logout,
                     ),
                   ],
                 ),
@@ -155,14 +217,12 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
             label: 'Profile',
           ),
         ],
-        currentIndex: 2, // Current page is Profile (index 2)
+        currentIndex: 2,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushNamed(context, '/home');
           } else if (index == 1) {
             Navigator.pushNamed(context, '/eventList');
-          } else if (index == 2) {
-            // Do nothing as we are already on the profile screen
           }
         },
       ),

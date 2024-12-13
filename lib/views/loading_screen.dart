@@ -26,7 +26,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.pinkAccent, Colors.purpleAccent],
+            colors: [
+              Color.fromARGB(255, 249, 151, 183),
+              Color.fromARGB(255, 242, 238, 243)
+            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),

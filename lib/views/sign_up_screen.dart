@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../storage/firebase_auth.dart'; // FirebaseAuthService for authentication
 import '../storage/local_storage_service.dart'; // Local storage service
 import '../providers/user_provider.dart'; // UserProvider for managing userId
+import 'package:intl/intl.dart'; // For date formatting
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -67,18 +68,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
         String hashedPassword = hashPassword(passwordController.text);
 
         // Reset and reinitialize the local database
-        await localStorageService.deleteDatabaseFile();
-        final db = await localStorageService.database;
+        // await localStorageService.deleteDatabaseFile();
+        // final db = await localStorageService.database;
 
-        // Insert user into the local database
-        int localUserId = await localStorageService.insertUser({
-          'uid': user.uid,
-          'name': usernameController.text,
-          'email': emailController.text,
-          'phoneNumber': phoneNumberController.text,
-          'notificationsEnabled': allowNotifications ? 1 : 0,
-          'password': hashedPassword,
-        });
+        //Insert user into the local database
+        // int localUserId = await localStorageService.insertUser({
+        //   'uid': user.uid,
+        //   'name': usernameController.text,
+        //   'email': emailController.text,
+        //   'phoneNumber': phoneNumberController.text,
+        //   'notificationsEnabled': allowNotifications ? 1 : 0,
+        //   'password': hashedPassword,
+        // });
 
         // Store user in Firestore
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
@@ -86,9 +87,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'email': emailController.text,
           'phoneNumber': phoneNumberController.text,
           'notificationsEnabled': allowNotifications,
-          'localId': localUserId,
           'password': hashedPassword,
         });
+
+        // Create placeholder for the events collection with a gifts sub-collection
+        final userDoc =
+            FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+        // Add an event with an auto-generated ID
+        final eventRef = userDoc.collection('events').doc();
+        await eventRef.set({
+          'name': 'Placeholder Event',
+          'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          'location': 'Placeholder Location',
+          'description': 'Placeholder Description',
+          'category': 'Placeholder Category',
+        });
+
+        // Add a gift with an auto-generated ID to the event
+        await eventRef.collection('gifts').doc().set({
+          'name': 'Placeholder Gift',
+          'description': 'Placeholder Description',
+          'category': 'Placeholder Category',
+          'price': 0.0,
+          'status': 0, // Default status
+        });
+
+        // Create an empty friends collection with an auto-generated ID
+        await userDoc.collection('friends').doc().set({
+          'name': 'Placeholder Friend',
+          'userId': 'placeholderUserId',
+        });
+
         // Save userId in UserProvider
         Provider.of<UserProvider>(context, listen: false).setUserId(user.uid);
 

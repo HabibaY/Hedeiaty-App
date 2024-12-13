@@ -111,14 +111,6 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final eventId = Provider.of<EventProvider>(context).eventId;
-
-    if (eventId == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Create/Edit Gift")),
-        body: const Center(child: Text("No event selected.")),
-      );
-    }
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.eventId != null ? "Edit Event" : "Create Event"),

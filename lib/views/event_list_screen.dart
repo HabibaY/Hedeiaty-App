@@ -89,6 +89,14 @@ class _EventListScreenState extends State<EventListScreen> {
       appBar: AppBar(
         title: const Text("Your Events"),
         backgroundColor: Colors.purple,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_upload),
+            onPressed: () {
+              // No action for now
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -104,7 +112,6 @@ class _EventListScreenState extends State<EventListScreen> {
                 onDaySelected: (selectedDay, focusedDay) {
                   setState(() {
                     _selectedDay = selectedDay; // Update the selected day
-                    print("Selected day: $_selectedDay"); // Debug print
                   });
                 },
                 selectedDayPredicate: (day) {
@@ -136,79 +143,93 @@ class _EventListScreenState extends State<EventListScreen> {
                 ),
               ),
             ),
-            // Sort-By Widget
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Sort by:",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            if (_events.isEmpty)
+              const Center(
+                child: Text(
+                  "No events yet",
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
                   ),
-                  DropdownButton<String>(
-                    value: _sortOption,
-                    items: ["Name", "Category", "Status"]
-                        .map((option) => DropdownMenuItem(
-                            value: option, child: Text(option)))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _sortOption = value!;
-                        _events.sort((a, b) {
-                          if (_sortOption == "Name") {
-                            return a.name.compareTo(b.name);
-                          } else if (_sortOption == "Category") {
-                            return a.category.compareTo(b.category);
-                          } else if (_sortOption == "Status") {
-                            final now = DateTime.now();
-                            final aDate = DateTime.parse(a.date);
-                            final bDate = DateTime.parse(b.date);
+                ),
+              )
+            else ...[
+              // Sort-By Widget
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Sort by:",
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    DropdownButton<String>(
+                      value: _sortOption,
+                      items: ["Name", "Category", "Status"]
+                          .map((option) => DropdownMenuItem(
+                              value: option, child: Text(option)))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _sortOption = value!;
+                          _events.sort((a, b) {
+                            if (_sortOption == "Name") {
+                              return a.name.compareTo(b.name);
+                            } else if (_sortOption == "Category") {
+                              return a.category.compareTo(b.category);
+                            } else if (_sortOption == "Status") {
+                              final now = DateTime.now();
+                              final aDate = DateTime.parse(a.date);
+                              final bDate = DateTime.parse(b.date);
 
-                            // Categorize events into Past, Current, and Upcoming
-                            bool aIsPast = aDate.isBefore(now);
-                            bool bIsPast = bDate.isBefore(now);
+                              // Categorize events into Past, Current, and Upcoming
+                              bool aIsPast = aDate.isBefore(now);
+                              bool bIsPast = bDate.isBefore(now);
 
-                            bool aIsCurrent = aDate.isAfter(
-                                    now.subtract(const Duration(days: 1))) &&
-                                aDate
-                                    .isBefore(now.add(const Duration(days: 1)));
-                            bool bIsCurrent = bDate.isAfter(
-                                    now.subtract(const Duration(days: 1))) &&
-                                bDate
-                                    .isBefore(now.add(const Duration(days: 1)));
+                              bool aIsCurrent = aDate.isAfter(
+                                      now.subtract(const Duration(days: 1))) &&
+                                  aDate.isBefore(
+                                      now.add(const Duration(days: 1)));
+                              bool bIsCurrent = bDate.isAfter(
+                                      now.subtract(const Duration(days: 1))) &&
+                                  bDate.isBefore(
+                                      now.add(const Duration(days: 1)));
 
-                            // Sorting logic for Status
-                            if (aIsPast && bIsPast ||
-                                aIsCurrent && bIsCurrent ||
-                                !aIsPast &&
-                                    !bIsPast &&
-                                    !aIsCurrent &&
-                                    !bIsCurrent) {
-                              return aDate.compareTo(
-                                  bDate); // Sort by ascending date within the same category
-                            } else if (aIsPast) {
-                              return -1; // Past events first
-                            } else if (bIsPast) {
-                              return 1; // Past events first
-                            } else if (aIsCurrent) {
-                              return -1; // Current events second
-                            } else if (bIsCurrent) {
-                              return 1; // Current events second
+                              // Sorting logic for Status
+                              if (aIsPast && bIsPast ||
+                                  aIsCurrent && bIsCurrent ||
+                                  !aIsPast &&
+                                      !bIsPast &&
+                                      !aIsCurrent &&
+                                      !bIsCurrent) {
+                                return aDate.compareTo(
+                                    bDate); // Sort by ascending date within the same category
+                              } else if (aIsPast) {
+                                return -1; // Past events first
+                              } else if (bIsPast) {
+                                return 1; // Past events first
+                              } else if (aIsCurrent) {
+                                return -1; // Current events second
+                              } else if (bIsCurrent) {
+                                return 1; // Current events second
+                              }
                             }
-                          }
-                          return 0; // Default case
+                            return 0; // Default case
+                          });
                         });
-                      });
-                    },
-                  ),
-                ],
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            // Events categorized
-            _buildEventList("Past Events", pastEvents),
-            _buildEventList("Current Events", currentEvents),
-            _buildEventList("Upcoming Events", upcomingEvents),
+              // Events categorized
+              _buildEventList("Past Events", pastEvents),
+              _buildEventList("Current Events", currentEvents),
+              _buildEventList("Upcoming Events", upcomingEvents),
+            ],
           ],
         ),
       ),
@@ -218,11 +239,11 @@ class _EventListScreenState extends State<EventListScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => CreateEditEventScreen(
-                initialDate: _selectedDay,
+                initialDate: _selectedDay, // Pass the selected day
                 userId: widget.userId,
               ),
             ),
-          ).then((_) => _fetchEvents());
+          ).then((_) => _fetchEvents()); // Refresh events after returning
         },
         backgroundColor: Colors.purple,
         child: const Icon(Icons.add),
