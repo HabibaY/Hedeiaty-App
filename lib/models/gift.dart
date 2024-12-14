@@ -1,11 +1,12 @@
 class Gift {
-  final int? id;
+  final int? id; // Local DB ID
   final String name;
   final String description;
   final String category;
   final double price;
-  final bool status; // Changed to boolean
-  final int eventId;
+  final bool status;
+  final String? gId; // Firestore ID
+  final int eventId; // Associated Event ID
 
   Gift({
     this.id,
@@ -14,10 +15,10 @@ class Gift {
     required this.category,
     required this.price,
     required this.status,
+    this.gId,
     required this.eventId,
   });
 
-  // Convert to Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -26,11 +27,11 @@ class Gift {
       'category': category,
       'price': price,
       'status': status ? 1 : 0, // Convert boolean to integer
+      'gId': gId,
       'eventId': eventId,
     };
   }
 
-  // Convert from Map
   static Gift fromMap(Map<String, dynamic> map) {
     return Gift(
       id: map['id'],
@@ -39,6 +40,7 @@ class Gift {
       category: map['category'],
       price: map['price'],
       status: map['status'] == 1, // Convert integer to boolean
+      gId: map['gId'],
       eventId: map['eventId'],
     );
   }

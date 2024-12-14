@@ -92,8 +92,15 @@ class _EventListScreenState extends State<EventListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.cloud_upload),
-            onPressed: () {
-              // No action for now
+            onPressed: () async {
+              await _eventController.publishEventsAndGifts(widget.userId);
+              _fetchEvents(); // Refresh the event list after publishing
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Unpublished events successfully uploaded!"),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
           ),
         ],
@@ -247,6 +254,36 @@ class _EventListScreenState extends State<EventListScreen> {
         },
         backgroundColor: Colors.purple,
         child: const Icon(Icons.add),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 1, // Highlight "Events"
+        selectedItemColor: Colors.purple,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_today), label: 'Events'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              if (ModalRoute.of(context)?.settings.name != '/home') {
+                Navigator.pushNamed(context, '/home');
+              }
+              break;
+            case 1:
+              if (ModalRoute.of(context)?.settings.name != '/eventList') {
+                Navigator.pushNamed(context, '/eventList');
+              }
+              break;
+            case 2:
+              if (ModalRoute.of(context)?.settings.name != '/profile') {
+                Navigator.pushNamed(context, '/profile');
+              }
+              break;
+          }
+        },
       ),
     );
   }

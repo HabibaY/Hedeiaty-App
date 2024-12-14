@@ -55,6 +55,7 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
         _descriptionController.text = event.description;
         _dateController.text = event.date;
         _category = event.category;
+        // `eId` is used internally; no UI interaction is necessary.
       });
     }
   }
@@ -71,15 +72,19 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
     }
 
     if (widget.eventId == null) {
+      // Add a new event with `isPublished: false` and `eId: null`
       await _eventController.addEvent(
         name: name,
         date: date,
         location: location,
         description: description,
         category: _category!,
+        isPublished: false, // Not published initially
         userId: widget.userId,
+        eId: null, // Firestore ID will be null until published
       );
     } else {
+      // Update an existing event
       final event = Event(
         id: widget.eventId,
         name: name,
@@ -87,7 +92,10 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
         location: location,
         description: description,
         category: _category!,
+        isPublished: false, // Retain the current unpublished state
+        //eId: null,
         userId: widget.userId,
+        // Ensure eId is only set during publishing
       );
       await _eventController.updateEvent(event);
     }

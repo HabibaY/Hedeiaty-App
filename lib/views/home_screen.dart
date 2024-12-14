@@ -34,6 +34,35 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    // Check if there are other users in the app
+    final usersSnapshot = await _firestore.collection('users').get();
+
+    if (usersSnapshot.docs.isEmpty ||
+        (usersSnapshot.docs.length == 1 &&
+            usersSnapshot.docs.first.id == userId)) {
+      // No other users in the app
+      await showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("No Users Found"),
+            content: const Text(
+              "It seems like you're the only user in the app right now. Invite your friends to join!",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text("OK"),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
     await showDialog(
       context: context,
       builder: (context) {
@@ -48,7 +77,12 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(
               onPressed: () async {
                 String phoneNumber = phoneNumberController.text.trim();
+
                 if (phoneNumber.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text("Phone number cannot be empty")),
+                  );
                   Navigator.of(context).pop();
                   return;
                 }
@@ -58,63 +92,79 @@ class _HomeScreenState extends State<HomeScreen> {
                     .where('phoneNumber', isEqualTo: phoneNumber)
                     .get();
 
-                if (friendSnapshot.docs.isNotEmpty) {
-                  final friendData = friendSnapshot.docs.first.data();
-                  final friendId = friendSnapshot.docs.first.id;
-
-                  // Get current user data
-                  final currentUserSnapshot =
-                      await _firestore.collection('users').doc(userId).get();
-                  final currentUserData = currentUserSnapshot.data();
-
-                  if (currentUserData == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Current user not found")),
-                    );
-                    Navigator.of(context).pop();
-                    return;
-                  }
-
-                  // Add friend to current user's friends collection
-                  await _firestore
-                      .collection('users')
-                      .doc(userId)
-                      .collection('friends')
-                      .doc(friendId)
-                      .set({
-                    'name': friendData['name'],
-                    'phoneNumber': phoneNumber,
-                    'userId': friendId, // Add the userId field
-                  });
-
-                  // Add current user to the friend's friends collection
-                  await _firestore
-                      .collection('users')
-                      .doc(friendId)
-                      .collection('friends')
-                      .doc(userId)
-                      .set({
-                    'name': currentUserData['name'],
-                    'phoneNumber': currentUserData['phoneNumber'],
-                    'userId':
-                        userId, // Ensure this matches request.auth.uid in Firestore rules
-                  });
+                if (friendSnapshot.docs.isEmpty) {
+                  // No user found with the entered phone number
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("Added successfully"),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-
-                  _fetchFriendsList(userId); // Update the friends list
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Invalid phone number"),
+                      content: Text("No user found with this phone number"),
                       backgroundColor: Colors.red,
                     ),
                   );
+                  Navigator.of(context).pop();
+                  return;
                 }
+
+                final friendData = friendSnapshot.docs.first.data();
+                final friendId = friendSnapshot.docs.first.id;
+
+                if (friendId == userId) {
+                  // Prevent adding yourself as a friend
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("You cannot add yourself as a friend"),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  Navigator.of(context).pop();
+                  return;
+                }
+
+                // Get current user data
+                final currentUserSnapshot =
+                    await _firestore.collection('users').doc(userId).get();
+                final currentUserData = currentUserSnapshot.data();
+
+                if (currentUserData == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Current user not found")),
+                  );
+                  Navigator.of(context).pop();
+                  return;
+                }
+
+                // Add friend to current user's friends collection
+                await _firestore
+                    .collection('users')
+                    .doc(userId)
+                    .collection('friends')
+                    .doc(friendId)
+                    .set({
+                  'name': friendData['name'],
+                  'phoneNumber': phoneNumber,
+                  'userId': friendId,
+                });
+
+                // Add current user to the friend's friends collection
+                await _firestore
+                    .collection('users')
+                    .doc(friendId)
+                    .collection('friends')
+                    .doc(userId)
+                    .set({
+                  'name': currentUserData['name'],
+                  'phoneNumber': currentUserData['phoneNumber'],
+                  'userId': userId,
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Friend added successfully"),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+
+                // Update the friends list
+                await _fetchFriendsList(userId);
 
                 Navigator.of(context).pop();
               },
@@ -133,18 +183,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // Log the query path
-      print('Querying path: /users/$userId/friends');
-
       final friendsSnapshot = await _firestore
           .collection('users')
           .doc(userId)
           .collection('friends')
           .get();
 
-      print('Number of friends found: ${friendsSnapshot.docs.length}');
-
-      // Create a list to hold the processed friends data
       List<Map<String, dynamic>> friendsData = [];
 
       for (var doc in friendsSnapshot.docs) {
@@ -155,9 +199,6 @@ class _HomeScreenState extends State<HomeScreen> {
             .doc(friendId)
             .collection('events')
             .get();
-
-        // Log each friend's userId
-        print('Fetching details for friendId: $friendId');
 
         final friendUserSnapshot =
             await _firestore.collection('users').doc(friendId).get();
@@ -173,19 +214,14 @@ class _HomeScreenState extends State<HomeScreen> {
           continue;
         }
 
-        // Add the friend's data to the list
         friendsData.add({
           'id': friendId,
           'name': friendUserData['name'] ?? 'Unknown',
           'phoneNumber': friendUserData['phoneNumber'] ?? 'N/A',
           'eventCount': friendEventsSnapshot.size,
         });
-
-        print(
-            'Fetched details for friendId: $friendId, data: ${friendUserData}');
       }
 
-      // Update the state and log the updated _friendsList
       setState(() {
         _friendsList = friendsData;
       });
@@ -344,81 +380,116 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 20),
               Expanded(
-                  child: _friendsList.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No friends list',
-                            style: TextStyle(fontSize: 18, color: Colors.grey),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _friendsList.length,
-                          itemBuilder: (context, index) {
-                            final friend = _friendsList[index];
-                            return Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              elevation: 4,
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 8, horizontal: 16),
-                              child: Row(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: CircleAvatar(
-                                      radius: 30,
-                                      backgroundImage:
-                                          AssetImage('assets/woman1.jpg'),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          friend['name'],
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Upcoming Events: ${friend['eventCount']}',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    decoration: const BoxDecoration(
-                                      borderRadius: BorderRadius.only(
-                                        topRight: Radius.circular(16),
-                                        bottomRight: Radius.circular(16),
+                child: _friendsList.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No friends list',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _friendsList.length,
+                        itemBuilder: (context, index) {
+                          final friend = _friendsList[index];
+                          return StreamBuilder<DocumentSnapshot>(
+                            stream: _firestore
+                                .collection('users')
+                                .doc(friend['id'])
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+
+                              if (snapshot.hasError) {
+                                return const Center(
+                                    child: Text("Error loading friend image"));
+                              }
+
+                              if (!snapshot.hasData || !snapshot.data!.exists) {
+                                return const Center(
+                                    child: Text("Friend data not available"));
+                              }
+
+                              final friendData =
+                                  snapshot.data!.data() as Map<String, dynamic>;
+                              final imagePath =
+                                  friendData['profileImagePath'] ??
+                                      'assets/default_image.jpg';
+
+                              return Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 4,
+                                margin: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 16),
+                                child: Row(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: CircleAvatar(
+                                        radius: 30,
+                                        backgroundImage:
+                                            imagePath.startsWith('http')
+                                                ? NetworkImage(imagePath)
+                                                : AssetImage(imagePath)
+                                                    as ImageProvider,
                                       ),
                                     ),
-                                    child: TextButton(
-                                      onPressed: () {
-                                        _showEventDetailsPopup(
-                                            context, friend['id']);
-                                      },
-                                      child: const Text(
-                                        'View Details',
-                                        style: TextStyle(color: Colors.purple),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            friend['name'],
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Upcoming Events: ${friend['eventCount']}',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        )),
+                                    Container(
+                                      decoration: const BoxDecoration(
+                                        borderRadius: BorderRadius.only(
+                                          topRight: Radius.circular(16),
+                                          bottomRight: Radius.circular(16),
+                                        ),
+                                      ),
+                                      child: TextButton(
+                                        onPressed: () {
+                                          _showEventDetailsPopup(
+                                              context, friend['id']);
+                                        },
+                                        child: const Text(
+                                          'View Details',
+                                          style:
+                                              TextStyle(color: Colors.purple),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
             ],
           ),
           Positioned(

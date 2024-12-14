@@ -117,26 +117,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (user != null) {
-        // Print to ensure authentication is successful
         print("User authenticated successfully with UID: ${user.uid}");
 
-        // Delay Firestore operations to ensure auth state is propagated
         final hashedPassword = _userController.hashPassword(password);
-        // Reset and reinitialize the local database
-        // await _userController
-        //     .resetDatabaseAndReinitialize(); // Use the new method
 
-        // // Save user locally using UserController
-        // await _userController.addUser(
-        //   user.uid,
-        //   username,
-        //   email,
-        //   phoneNumber,
-        //   allowNotifications,
-        //   password,
-        //   selectedImage!,
-        // );
-
+        // Save user to Firestore
         await _userController.addUserToFirestore(
           uid: user.uid,
           name: username,
@@ -147,6 +132,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
           profileImagePath: selectedImage!,
         );
 
+        // Fetch user data from Firestore
+        // Fetch user data from Firestore using UserController
+        final fetchedUser =
+            await _userController.fetchUserFromFirestore(user.uid);
+
+        if (fetchedUser != null) {
+          // Reset and initialize the local database
+          await _userController.resetDatabaseAndReinitialize();
+
+          // Save the fetched user data locally
+          await _userController.addUser(
+            fetchedUser.uid,
+            fetchedUser.name,
+            fetchedUser.email,
+            fetchedUser.phoneNumber,
+            fetchedUser.notificationsEnabled,
+            fetchedUser.password,
+            fetchedUser.profileImagePath,
+          );
+
+          print("User data successfully fetched and stored locally.");
+        } else {
+          setState(() {
+            errorMessage = "Failed to fetch user data from Firestore.";
+          });
+        }
+
+        // Update the user ID in the provider
         Provider.of<UserProvider>(context, listen: false).setUserId(user.uid);
 
         _showSnackbar("Sign-up successful!");

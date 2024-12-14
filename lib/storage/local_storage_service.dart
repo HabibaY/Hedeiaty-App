@@ -47,6 +47,8 @@ class LocalStorageService {
             description TEXT,
             category TEXT,
             userId TEXT,
+            isPublished INTEGER DEFAULT 0,
+            eId TEXT UNIQUE,
             FOREIGN KEY (userId) REFERENCES users(id)
           )
         ''');
@@ -58,6 +60,7 @@ class LocalStorageService {
             category TEXT,
             price REAL,
             status INTEGER,
+            gId TEXT UNIQUE,
             eventId INTEGER,
             FOREIGN KEY (eventId) REFERENCES events(uid)
           )
@@ -218,5 +221,44 @@ class LocalStorageService {
   Future<void> deleteDatabaseFile() async {
     String path = join(await getDatabasesPath(), 'hedieaty.db');
     await deleteDatabase(path);
+  }
+
+  Future<void> markEventAsPublished(int eventId, String eId) async {
+    final db = await database;
+    await db.update(
+      'events',
+      {'isPublished': 1, 'eId': eId}, // Set published and store Firestore ID
+      where: 'id = ?',
+      whereArgs: [eventId],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getUnpublishedEvents() async {
+    final db = await database;
+    return await db.query(
+      'events',
+      where: 'isPublished = ?',
+      whereArgs: [0],
+    );
+  }
+
+  Future<void> setGiftFirestoreId(int localGiftId, String gId) async {
+    final db = await database;
+    await db.update(
+      'gifts',
+      {'gId': gId}, // Only update the Firestore ID
+      where: 'id = ?',
+      whereArgs: [localGiftId],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getPublishedEvents() async {
+    final db = await database;
+    // Query to fetch all events that are marked as published (isPublished = 1)
+    return await db.query(
+      'events',
+      where: 'isPublished = ?',
+      whereArgs: [1],
+    );
   }
 }

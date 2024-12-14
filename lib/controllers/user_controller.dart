@@ -16,9 +16,6 @@ class UserController {
     String password,
     String profileImagePath, // New parameter for the profile image path
   ) async {
-    // Hash the password for secure storage
-    String hashedPassword = User.hashPassword(password);
-
     // Create a User object with all fields
     User user = User(
       uid: uid,
@@ -26,7 +23,7 @@ class UserController {
       email: email,
       phoneNumber: phoneNumber,
       notificationsEnabled: notificationsEnabled,
-      password: hashedPassword,
+      password: password,
       profileImagePath: profileImagePath, // Save the image path
     );
 
@@ -46,7 +43,7 @@ class UserController {
     required String profileImagePath,
   }) async {
     try {
-      // Add user document
+      // Add user document with essential details
       await _firestore.collection('users').doc(uid).set({
         'name': name,
         'email': email,
@@ -56,31 +53,8 @@ class UserController {
         'profileImagePath': profileImagePath,
       });
 
-      // Create placeholder data in Firestore
-      final userDoc = _firestore.collection('users').doc(uid);
-
-      // Add a placeholder event
-      final eventRef = userDoc.collection('events').doc();
-      await eventRef.set({
-        'name': 'Placeholder Event',
-        'date': DateTime.now().toIso8601String(),
-        'location': 'Placeholder Location',
-        'description': 'Placeholder Description',
-        'category': 'Placeholder Category',
-      });
-
-      // Add a placeholder gift under the event
-      await eventRef.collection('gifts').doc().set({
-        'name': 'Placeholder Gift',
-        'description': 'Placeholder Description',
-        'category': 'Placeholder Category',
-        'price': 0.0,
-        'status': 0,
-      });
-
-      // Ensure the friends subcollection exists but is empty
-      final friendsCollection = userDoc.collection('friends');
-      await friendsCollection.doc(); // Create an empty subcollection
+      // Avoid creating placeholder events, gifts, or friends collections
+      print("User document added to Firestore successfully.");
     } catch (e) {
       // Handle Firestore exceptions
       print('Error adding user to Firestore: $e');
@@ -140,34 +114,68 @@ class UserController {
     await _localStorageService.database; // Reinitialize the database
   }
 
+  /// Fetch user data from Firestore by UID
+  Future<User?> fetchUserFromFirestore(String uid) async {
+    try {
+      // Fetch the user document from Firestore
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        if (userData != null) {
+          // Convert Firestore data into a User object
+          return User(
+            uid: uid,
+            name: userData['name'] ?? '',
+            email: userData['email'] ?? '',
+            phoneNumber: userData['phoneNumber'] ?? '',
+            notificationsEnabled: userData['notificationsEnabled'] ?? true,
+            password: userData['password'] ?? '',
+            profileImagePath: userData['profileImagePath'] ?? '',
+          );
+        }
+      }
+    } catch (e) {
+      print('Error fetching user from Firestore: $e');
+    }
+    return null; // Return null if the user is not found
+  }
+
   // Update the profile image path in local storage
 // Update the profile image path in local storage
   Future<void> updateUserProfileImage(String uid, String newImagePath) async {
-    // Fetch the current user
-    List<User> users = await getUsers();
-    User? userToUpdate;
+    try {
+      // Fetch the current user
+      List<User> users = await getUsers();
+      User? userToUpdate;
 
-    for (var user in users) {
-      if (user.uid == uid) {
-        userToUpdate = user;
-        break;
+      for (var user in users) {
+        if (user.uid == uid) {
+          userToUpdate = user;
+          break;
+        }
       }
-    }
 
-    if (userToUpdate != null) {
-      // Create a new user object with the updated profileImagePath
-      User updatedUser = User(
-        uid: userToUpdate.uid,
-        name: userToUpdate.name,
-        email: userToUpdate.email,
-        phoneNumber: userToUpdate.phoneNumber,
-        notificationsEnabled: userToUpdate.notificationsEnabled,
-        password: userToUpdate.password,
-        profileImagePath: newImagePath, // Update profile image path
-      );
+      if (userToUpdate != null) {
+        // Create a new user object with the updated profileImagePath
+        User updatedUser = User(
+          uid: userToUpdate.uid,
+          name: userToUpdate.name,
+          email: userToUpdate.email,
+          phoneNumber: userToUpdate.phoneNumber,
+          notificationsEnabled: userToUpdate.notificationsEnabled,
+          password: userToUpdate.password,
+          profileImagePath: newImagePath, // Update profile image path
+        );
 
-      // Save the updated user back to local storage
-      await updateUser(updatedUser);
+        // Save the updated user back to local storage
+        await updateUser(updatedUser);
+        print('User updated locally: ${updatedUser.toMap()}');
+      } else {
+        print('User not found locally, skipping local update.');
+      }
+    } catch (e) {
+      print('Error updating local storage: $e');
     }
   }
 
@@ -207,7 +215,11 @@ class UserController {
     // Try updating local storage
     try {
       List<User> users = await getUsers();
-      User? userToUpdate;
+
+      User? userToUpdate = users.cast<User?>().firstWhere(
+            (user) => user?.uid == uid,
+            orElse: () => null,
+          );
 
       for (var user in users) {
         if (user.uid == uid) {
@@ -219,6 +231,7 @@ class UserController {
       if (userToUpdate != null) {
         // Create a new user object with updated fields
         User updatedUser = User(
+          id: userToUpdate.id,
           uid: userToUpdate.uid,
           name: name ?? userToUpdate.name,
           email: email ?? userToUpdate.email,
@@ -230,6 +243,9 @@ class UserController {
 
         await updateUser(updatedUser);
         localUpdated = true;
+        print('User updated locally: ${updatedUser.toMap()}');
+      } else {
+        print('User not found locally, skipping local update.');
       }
     } catch (e) {
       print('Error updating local storage: $e');
@@ -279,6 +295,52 @@ class UserController {
       print('Friends information updated successfully.');
     } catch (e) {
       print('Error propagating friend updates: $e');
+    }
+  }
+
+  /// Publish local events and gifts to Firestore
+  Future<void> publishEventsToFirestore(String userId) async {
+    try {
+      // Fetch local events from the database
+      final localEvents = await _localStorageService.getEventsForUser(userId);
+
+      for (var event in localEvents) {
+        // Add the event to Firestore under the user's events subcollection
+        final eventRef = _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('events')
+            .doc(event['id']
+                .toString()); // Use the local event ID as the Firestore doc ID
+
+        await eventRef.set({
+          'name': event['name'],
+          'date': event['date'],
+          'location': event['location'],
+          'description': event['description'],
+          'category': event['category'],
+        });
+
+        // Fetch gifts associated with this event from the local database
+        final localGifts =
+            await _localStorageService.getGiftsForEvent(event['id']);
+
+        // Add gifts to the Firestore `gifts` subcollection under this event
+        for (var gift in localGifts) {
+          await eventRef.collection('gifts').doc(gift['id'].toString()).set({
+            'name': gift['name'],
+            'description': gift['description'],
+            'category': gift['category'],
+            'price': gift['price'],
+            'status': gift['status'],
+          });
+        }
+      }
+
+      print("All events and gifts have been published successfully.");
+    } catch (e) {
+      print("Error publishing events: $e");
+      rethrow;
     }
   }
 }
