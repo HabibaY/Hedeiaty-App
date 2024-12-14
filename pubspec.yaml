@@ -76,6 +76,8 @@ flutter:
   - assets/logo.jpg
   - assets/rb_24638.png
   - assets/loading.png
+  - assets/default_avatar.png
+  - assets/profile/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -84,6 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       .set({
                     'name': friendData['name'],
                     'phoneNumber': phoneNumber,
+                    'userId': friendId, // Add the userId field
                   });
 
                   // Add current user to the friend's friends collection
@@ -95,8 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       .set({
                     'name': currentUserData['name'],
                     'phoneNumber': currentUserData['phoneNumber'],
+                    'userId':
+                        userId, // Ensure this matches request.auth.uid in Firestore rules
                   });
-
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text("Added successfully"),
@@ -125,32 +127,72 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchFriendsList(String userId) async {
-    final friendsSnapshot = await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('friends')
-        .get();
+    try {
+      if (userId == null || userId.isEmpty) {
+        print('Error: userId is null or empty');
+        return;
+      }
 
-    List<Map<String, dynamic>> friendsData = [];
-    for (var doc in friendsSnapshot.docs) {
-      final friendData = doc.data();
-      final friendId = doc.id;
-      final friendEventsSnapshot = await _firestore
+      // Log the query path
+      print('Querying path: /users/$userId/friends');
+
+      final friendsSnapshot = await _firestore
           .collection('users')
-          .doc(friendId)
-          .collection('events')
+          .doc(userId)
+          .collection('friends')
           .get();
-      friendsData.add({
-        'id': friendId,
-        'name': friendData['name'],
-        'phoneNumber': friendData['phoneNumber'],
-        'eventCount': friendEventsSnapshot.size,
-      });
-    }
 
-    setState(() {
-      _friendsList = friendsData;
-    });
+      print('Number of friends found: ${friendsSnapshot.docs.length}');
+
+      // Create a list to hold the processed friends data
+      List<Map<String, dynamic>> friendsData = [];
+
+      for (var doc in friendsSnapshot.docs) {
+        final friendData = doc.data();
+        final friendId = friendData['userId'];
+        final friendEventsSnapshot = await _firestore
+            .collection('users')
+            .doc(friendId)
+            .collection('events')
+            .get();
+
+        // Log each friend's userId
+        print('Fetching details for friendId: $friendId');
+
+        final friendUserSnapshot =
+            await _firestore.collection('users').doc(friendId).get();
+
+        if (!friendUserSnapshot.exists) {
+          print('Friend user not found: $friendId');
+          continue;
+        }
+
+        final friendUserData = friendUserSnapshot.data();
+        if (friendUserData == null) {
+          print('Invalid friend user data: $friendId');
+          continue;
+        }
+
+        // Add the friend's data to the list
+        friendsData.add({
+          'id': friendId,
+          'name': friendUserData['name'] ?? 'Unknown',
+          'phoneNumber': friendUserData['phoneNumber'] ?? 'N/A',
+          'eventCount': friendEventsSnapshot.size,
+        });
+
+        print(
+            'Fetched details for friendId: $friendId, data: ${friendUserData}');
+      }
+
+      // Update the state and log the updated _friendsList
+      setState(() {
+        _friendsList = friendsData;
+      });
+      print('Updated _friendsList: $_friendsList');
+    } catch (e) {
+      print('Error fetching friends: $e');
+    }
   }
 
   Future<void> _showEventDetailsPopup(

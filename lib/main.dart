@@ -14,6 +14,9 @@ import 'views/sign_in_screen.dart';
 import 'views/profile_page_screen.dart';
 import 'views/pledged_gifts_screen.dart';
 import 'views/sign_up_screen.dart';
+import 'views/continue_signup.dart';
+
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +53,7 @@ class MyApp extends StatelessWidget {
             '/loading': (context) => const LoadingScreen(),
             '/login': (context) => const SignInScreen(),
             '/register': (context) => const SignUpScreen(),
+            '/continue_signup': (context) => const ContinueSignUpScreen(), // Added this route
             '/profile': (context) => const ProfilePageScreen(),
             '/eventList': (context) => EventListScreen(
                   userId:

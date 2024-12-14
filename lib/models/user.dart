@@ -9,6 +9,7 @@ class User {
   final String phoneNumber;
   final bool notificationsEnabled;
   final String password; // Already hashed when passed to the model
+  final String profileImagePath; // Added profile image path field
 
   User({
     this.id,
@@ -18,6 +19,7 @@ class User {
     required this.phoneNumber,
     required this.notificationsEnabled,
     required this.password,
+    required this.profileImagePath, // Initialize the new field
   });
 
   // Convert to Map
@@ -30,6 +32,7 @@ class User {
       'phoneNumber': phoneNumber,
       'notificationsEnabled': notificationsEnabled ? 1 : 0, // Boolean to int
       'password': password, // Already hashed
+      'profileImagePath': profileImagePath, // Include the new field
     };
   }
 
@@ -43,6 +46,7 @@ class User {
       phoneNumber: map['phoneNumber'],
       notificationsEnabled: map['notificationsEnabled'] == 1, // Int to bool
       password: map['password'], // Already hashed
+      profileImagePath: map['profileImagePath'], // Map the new field
     );
   }
 

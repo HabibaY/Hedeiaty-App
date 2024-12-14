@@ -25,6 +25,7 @@ class LocalStorageService {
       version: 1,
       onCreate: (db, version) async {
         print("Creating tables...");
+        // Update the 'users' table schema in onCreate
         await db.execute('''
           CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,9 +34,10 @@ class LocalStorageService {
             email TEXT,
             phoneNumber TEXT,
             notificationsEnabled INTEGER,
-            password TEXT
-          )
-        ''');
+            password TEXT,
+            profileImagePath TEXT
+        )
+      ''');
         await db.execute('''
           CREATE TABLE events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,19 +1,37 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Rules for the users collection
+    match /users/{userId} {
+      // Allow authenticated users to read their own user document
+      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2024, 12, 29);
+      // Allow authenticated users to read any user document for subcollection access
+      allow read: if request.auth != null;
+
+      // Rules for the friends subcollection
+      match /friends/{friendId} {
+        // Allow authenticated users to read any friends document
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+
+        // Allow users to write to their own friends list
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Events subcollection
+      match /events/{eventId} {
+        // Allow authenticated users to create, read, and write events under their own user document
+        allow create, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null;
+
+        // Gifts subcollection under events
+        match /gifts/{giftId} {
+          // Allow authenticated users to create, read, and write gifts under their own events
+          allow create, write: if request.auth != null && request.auth.uid == userId;
+          allow read: if request.auth != null;
+        }
+      }
     }
   }
 }
