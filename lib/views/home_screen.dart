@@ -11,8 +11,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> _friendsList = [];
+  String profileImagePath =
+      'assets/default_avatar.png'; // Default profile image
 
   @override
   void initState() {
@@ -20,6 +23,29 @@ class _HomeScreenState extends State<HomeScreen> {
     final userId = Provider.of<UserProvider>(context, listen: false).userId;
     if (userId != null) {
       _fetchFriendsList(userId);
+      _fetchUserProfileImage(userId);
+    }
+  }
+
+  Future<void> _fetchUserProfileImage(String userId) async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    try {
+      final userId = Provider.of<UserProvider>(context, listen: false).userId;
+      if (userId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            profileImagePath =
+                userDoc['profileImagePath'] ?? 'assets/default_avatar.png';
+          });
+        }
+      }
+    } catch (e) {
+      print("Error loading user data: $e");
     }
   }
 
@@ -218,6 +244,8 @@ class _HomeScreenState extends State<HomeScreen> {
           'id': friendId,
           'name': friendUserData['name'] ?? 'Unknown',
           'phoneNumber': friendUserData['phoneNumber'] ?? 'N/A',
+          'profilImagePath':
+              friendUserData['profileImagePath'] ?? 'assets/default_avatar.png',
           'eventCount': friendEventsSnapshot.size,
         });
       }
@@ -305,6 +333,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _searchFriendByName(String name) {
+    final friend = _friendsList.firstWhere(
+      (friend) => friend['name'].toLowerCase() == name.toLowerCase(),
+      orElse: () => {}, // Return an empty Map if no match is found
+    );
+
+    if (friend.isNotEmpty) {
+      _showEventDetailsPopup(context, friend['id']);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Incorrect Name"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -318,9 +364,13 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Container(
                 width: double.infinity,
-                height: MediaQuery.of(context).size.height * 0.3,
+                height: MediaQuery.of(context).size.height * 0.35,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFE1BEE7),
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF6C3483), Color(0xFFE1BEE7)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(40),
                     bottomRight: Radius.circular(40),
@@ -329,29 +379,58 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16.0, 40.0, 16.0, 0.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const CircleAvatar(
-                        backgroundImage: AssetImage('assets/woman1.jpg'),
-                        radius: 40,
+                      CircleAvatar(
+                        backgroundImage: profileImagePath.startsWith('http')
+                            ? NetworkImage(profileImagePath)
+                            : AssetImage(profileImagePath) as ImageProvider,
+                        radius: 50,
+                        backgroundColor: Colors.white,
                       ),
                       const SizedBox(height: 20),
                       Container(
+                        height: 50,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: TextField(
-                          decoration: const InputDecoration(
+                          controller: _searchController,
+                          decoration: InputDecoration(
                             hintText: 'Search friend',
                             prefixIcon:
-                                Icon(Icons.search, color: Colors.purple),
+                                const Icon(Icons.search, color: Colors.purple),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear,
+                                        color: Colors.grey),
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchController
+                                            .clear(); // Clear the input
+                                      });
+                                    },
+                                  )
+                                : null, // No suffix icon if the input is empty
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 12),
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 12),
                           ),
+                          onChanged: (value) {
+                            setState(
+                                () {}); // Trigger UI update to show/hide the clear button
+                          },
                           onSubmitted: (value) {
                             if (value.isNotEmpty) {
-                              Navigator.pushNamed(context, '/friendGiftList');
+                              _searchFriendByName(value);
                             }
                           },
                         ),
@@ -361,21 +440,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
+
+              // Create Event Button
+              ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pushNamed(context, '/eventList');
                 },
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  "Create Your Own Event/List",
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
-                ),
-                child: const Text(
-                  "Create Your Own Event/List",
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  backgroundColor: Colors.purple,
                 ),
               ),
               const SizedBox(height: 20),
@@ -391,132 +473,71 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemCount: _friendsList.length,
                         itemBuilder: (context, index) {
                           final friend = _friendsList[index];
-                          return StreamBuilder<DocumentSnapshot>(
-                            stream: _firestore
-                                .collection('users')
-                                .doc(friend['id'])
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
-
-                              if (snapshot.hasError) {
-                                return const Center(
-                                    child: Text("Error loading friend image"));
-                              }
-
-                              if (!snapshot.hasData || !snapshot.data!.exists) {
-                                return const Center(
-                                    child: Text("Friend data not available"));
-                              }
-
-                              final friendData =
-                                  snapshot.data!.data() as Map<String, dynamic>;
-                              final imagePath =
-                                  friendData['profileImagePath'] ??
-                                      'assets/default_image.jpg';
-
-                              return Card(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                          return Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 4,
+                            margin: const EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 16),
+                            child: Row(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: CircleAvatar(
+                                    radius: 30,
+                                    backgroundImage:
+                                        profileImagePath.startsWith('http')
+                                            ? NetworkImage(profileImagePath)
+                                            : AssetImage(profileImagePath)
+                                                as ImageProvider,
+                                  ),
                                 ),
-                                elevation: 4,
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: CircleAvatar(
-                                        radius: 30,
-                                        backgroundImage:
-                                            imagePath.startsWith('http')
-                                                ? NetworkImage(imagePath)
-                                                : AssetImage(imagePath)
-                                                    as ImageProvider,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            friend['name'],
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Upcoming Events: ${friend['eventCount']}',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      decoration: const BoxDecoration(
-                                        borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(16),
-                                          bottomRight: Radius.circular(16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        friend['name'],
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black,
                                         ),
                                       ),
-                                      child: TextButton(
-                                        onPressed: () {
-                                          _showEventDetailsPopup(
-                                              context, friend['id']);
-                                        },
-                                        child: const Text(
-                                          'View Details',
-                                          style:
-                                              TextStyle(color: Colors.purple),
-                                        ),
+                                      Text(
+                                        'Upcoming Events: ${friend['eventCount']}',
+                                        style: const TextStyle(
+                                            fontSize: 14, color: Colors.grey),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              );
-                            },
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_forward_ios,
+                                      color: Colors.purple),
+                                  onPressed: () {
+                                    _showEventDetailsPopup(
+                                        context, friend['id']);
+                                  },
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
-              ),
+              )
             ],
           ),
+          // Floating Action Button for Adding Friends
           Positioned(
             bottom: 16,
             right: 16,
-            child: GestureDetector(
-              onTap: _addFriend,
-              child: Container(
-                height: 60,
-                width: 60,
-                decoration: const BoxDecoration(
-                  color: Colors.purple,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 6,
-                      offset: Offset(2, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.person_add,
-                  color: Colors.white,
-                  size: 30,
-                ),
-              ),
+            child: FloatingActionButton(
+              onPressed: _addFriend,
+              backgroundColor: Colors.purple,
+              child: const Icon(Icons.person_add, color: Colors.white),
             ),
           ),
         ],

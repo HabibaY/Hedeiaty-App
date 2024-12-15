@@ -24,6 +24,11 @@ class _EventListScreenState extends State<EventListScreen> {
 
   Future<void> _fetchEvents() async {
     final events = await _eventController.getEventsForUser(widget.userId);
+    if (events.isEmpty) {
+      print('No events available for user $widget.userId.');
+    } else {
+      print('Fetched ${events.length} events for user $widget.userId.');
+    }
     setState(() {
       _events = events;
       _eventsByDate = _groupEventsByDate(events);
@@ -330,12 +335,16 @@ class _EventListScreenState extends State<EventListScreen> {
                         icon: const Icon(Icons.visibility, color: Colors.blue),
                         onPressed: () {
                           Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  EventDetailsScreen(event: event),
-                            ),
-                          );
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EventDetailsScreen(
+                                  eventId: event.eId ??
+                                      event.id
+                                          .toString(), // Use Firestore `eId` or local `id`
+
+                                  userId: event.userId, // Pass user ID
+                                ),
+                              ));
                         },
                       ),
                       IconButton(

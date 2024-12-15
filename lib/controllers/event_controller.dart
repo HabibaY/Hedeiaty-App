@@ -35,9 +35,55 @@ class EventController {
 
   /// Fetch all events for a specific user
   Future<List<Event>> getEventsForUser(String userId) async {
-    List<Map<String, dynamic>> eventsMap =
-        await _localStorageService.getEventsForUser(userId);
-    return eventsMap.map((map) => Event.fromMap(map)).toList();
+    try {
+      // Try fetching events from local storage
+      List<Map<String, dynamic>> eventsMap =
+          await _localStorageService.getEventsForUser(userId);
+
+      if (eventsMap.isNotEmpty) {
+        print('Fetched ${eventsMap.length} events locally for user $userId.');
+        return eventsMap.map((map) => Event.fromMap(map)).toList();
+      } else {
+        print(
+            'No events found locally for user $userId. Fetching from Firestore...');
+      }
+    } catch (e) {
+      print('Error fetching events from local storage: $e');
+    }
+
+    // If local fetch fails or no events are found, fetch events from Firestore
+    try {
+      QuerySnapshot firestoreSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('events')
+          .get();
+
+      if (firestoreSnapshot.docs.isEmpty) {
+        print('No events found in Firestore for user $userId.');
+        return [];
+      }
+
+      print(
+          'Fetched ${firestoreSnapshot.docs.length} events from Firestore for user $userId.');
+
+      // Map Firestore documents to Event objects
+      List<Event> firestoreEvents = firestoreSnapshot.docs.map((doc) {
+        return Event.fromFirestore(
+            doc.data() as Map<String, dynamic>, doc.id, userId);
+      }).toList();
+
+      // // Optionally store events locally
+      // for (var event in firestoreEvents) {
+      //   print('Storing event locally: ${event.toMap()}');
+      //   await _localStorageService.insertEvent(event.toMap());
+      // }
+
+      return firestoreEvents;
+    } catch (e) {
+      print('Error fetching events from Firestore: $e');
+      return [];
+    }
   }
 
   /// Update an existing event

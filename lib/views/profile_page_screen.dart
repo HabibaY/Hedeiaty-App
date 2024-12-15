@@ -251,21 +251,32 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
   }
 
   Future<void> _updateNotifications(bool value) async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (userId == null) return;
+
     try {
-      final userId = Provider.of<UserProvider>(context, listen: false).userId;
-      if (userId != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .update({'notificationsEnabled': value});
-        setState(() {
-          receiveGiftPledgeNotifications = value;
-        });
-      }
+      // Use UserController to update
+      final userController = UserController();
+      await userController.updateNotificationPreference(userId, value);
+
+      // Update UI
+      setState(() {
+        receiveGiftPledgeNotifications = value;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notification preference updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      final snackBar =
-          SnackBar(content: Text('Failed to update notifications: $e'));
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update notifications: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

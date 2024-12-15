@@ -257,6 +257,61 @@ class UserController {
     }
   }
 
+  Future<void> updateNotificationPreference(
+      String uid, bool notificationsEnabled) async {
+    bool firestoreUpdated = false;
+    bool localUpdated = false;
+
+    // Update Firestore
+    try {
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      if (userDoc.exists) {
+        await _firestore.collection('users').doc(uid).update({
+          'notificationsEnabled': notificationsEnabled,
+        });
+        firestoreUpdated = true;
+      }
+    } catch (e) {
+      print('Error updating Firestore notifications: $e');
+    }
+
+    // Update local storage
+    try {
+      List<User> users = await getUsers();
+      User? userToUpdate = users.cast<User?>().firstWhere(
+            (user) => user?.uid == uid,
+            orElse: () => null,
+          );
+
+      if (userToUpdate != null) {
+        // Create an updated user object
+        User updatedUser = User(
+          id: userToUpdate.id,
+          uid: userToUpdate.uid,
+          name: userToUpdate.name,
+          email: userToUpdate.email,
+          phoneNumber: userToUpdate.phoneNumber,
+          notificationsEnabled: notificationsEnabled, // Updated notifications
+          password: userToUpdate.password,
+          profileImagePath: userToUpdate.profileImagePath,
+        );
+
+        await updateUser(updatedUser);
+        localUpdated = true;
+        print(
+            'Notification preference updated locally: ${updatedUser.toMap()}');
+      } else {
+        print('User not found locally, skipping local update.');
+      }
+    } catch (e) {
+      print('Error updating local storage notifications: $e');
+    }
+
+    if (!firestoreUpdated && !localUpdated) {
+      print('Notification update failed in both Firestore and local storage.');
+    }
+  }
+
   /// Update the current user's information in all `friends` subcollections
   Future<void> propagateFriendUpdates({
     required String userId,

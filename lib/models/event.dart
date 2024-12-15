@@ -39,15 +39,29 @@ class Event {
   // Convert Map from database to Event object
   factory Event.fromMap(Map<String, dynamic> map) {
     return Event(
-      id: map['id'],
-      name: map['name'],
-      date: map['date'],
-      location: map['location'],
-      description: map['description'],
-      category: map['category'],
-      eId: map['eId'], // Fetch Firestore ID
-      isPublished: map['isPublished'] == 1, // Convert integer to boolean
-      userId: map['userId'],
+      id: map['id'], // Nullable, only present in local storage
+      name: map['name'] ?? '',
+      date: map['date'] ?? '',
+      location: map['location'] ?? '',
+      description: map['description'] ?? '',
+      category: map['category'] ?? '',
+      eId: map['eId'], // Nullable, only present if synced with Firestore
+      isPublished: map['isPublished'] == 1, // Default to false if not present
+      userId: map['userId'] ?? '',
+    );
+  }
+  factory Event.fromFirestore(
+      Map<String, dynamic> map, String documentId, String userId) {
+    return Event(
+      id: null, // Local ID is not present in Firestore
+      name: map['name'] ?? '',
+      date: map['date'] ?? '',
+      location: map['location'] ?? '',
+      description: map['description'] ?? '',
+      category: map['category'] ?? '',
+      eId: documentId, // Use Firestore document ID
+      isPublished: true, // Firestore events are considered published
+      userId: userId, // Pass the userId explicitly
     );
   }
 }

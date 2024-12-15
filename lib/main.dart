@@ -16,8 +16,6 @@ import 'views/pledged_gifts_screen.dart';
 import 'views/sign_up_screen.dart';
 import 'views/continue_signup.dart';
 
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); // Initialize Firebase
@@ -48,12 +46,16 @@ class MyApp extends StatelessWidget {
                 Colors.purple[50], // Light purple background
           ),
           home: const WelcomeScreen(),
+          //initialRoute: '/',
           routes: {
+            '/welcome': (context) =>
+                const WelcomeScreen(), // Welcome screen is the initial route
             '/home': (context) => const HomeScreen(),
             '/loading': (context) => const LoadingScreen(),
             '/login': (context) => const SignInScreen(),
             '/register': (context) => const SignUpScreen(),
-            '/continue_signup': (context) => const ContinueSignUpScreen(), // Added this route
+            '/continue_signup': (context) =>
+                const ContinueSignUpScreen(), // Added this route
             '/profile': (context) => const ProfilePageScreen(),
             '/eventList': (context) => EventListScreen(
                   userId:
