@@ -15,10 +15,17 @@ import 'views/profile_page_screen.dart';
 import 'views/pledged_gifts_screen.dart';
 import 'views/sign_up_screen.dart';
 import 'views/continue_signup.dart';
+import 'storage/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); // Initialize Firebase
+  // Initialize notification settings
+  // Initialize NotificationHelper
+  await NotificationHelper.initialize();
+  // Register FirebaseHelper singleton
+  // getIt.registerSingleton<FirebaseHelper>(FirebaseHelper());
+
   runApp(
     MultiProvider(
       providers: [
@@ -85,8 +92,8 @@ class MyApp extends StatelessWidget {
                 ),
             '/friendGiftList': (context) =>
                 const FriendGiftListScreen(), // Unchanged route
-            '/pledgedGifts': (context) =>
-                const PledgedGiftsScreen(), // Unchanged route
+            '/pledgedGifts': (context) => PledgedGiftsScreen(
+                userId: userProvider.userId ?? ''), // Unchanged route
           },
         );
       },

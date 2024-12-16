@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/user_provider.dart';
+import '../storage/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _fetchFriendsList(userId);
       _fetchUserProfileImage(userId);
     }
+    //_initializeGiftNotifications();
   }
 
   Future<void> _fetchUserProfileImage(String userId) async {
@@ -59,6 +61,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       return;
     }
+//     void _initializeGiftNotifications() async {
+//     final currentUser = await _firebaseHelper.getCurrentUser();
+//     if (currentUser != null) {
+//       _firebaseHelper.listenForPledgedGifts(currentUser.id);
+//     }
+//   }
 
     // Check if there are other users in the app
     final usersSnapshot = await _firestore.collection('users').get();

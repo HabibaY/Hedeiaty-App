@@ -4,7 +4,8 @@ class Gift {
   final String description;
   final String category;
   final double price;
-  final bool status;
+  bool status;
+  final String dueDate;
   final String? gId; // Firestore ID
   final int eventId; // Associated Event ID
 
@@ -15,6 +16,7 @@ class Gift {
     required this.category,
     required this.price,
     required this.status,
+    required this.dueDate,
     this.gId,
     required this.eventId,
   });
@@ -28,6 +30,7 @@ class Gift {
       'price': price,
       'status': status ? 1 : 0, // Convert boolean to integer
       'gId': gId,
+      'dueDate': dueDate,
       'eventId': eventId,
     };
   }
@@ -39,7 +42,8 @@ class Gift {
       description: map['description'],
       category: map['category'],
       price: map['price'],
-      status: map['status'] == 1, // Convert integer to boolean
+      status: map['status'] == 1,
+      dueDate: map['dueDate'],
       gId: map['gId'],
       eventId: map['eventId'],
     );

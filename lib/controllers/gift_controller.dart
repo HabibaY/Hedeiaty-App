@@ -10,6 +10,7 @@ class GiftController {
     required String category,
     required double price,
     required bool status,
+    required String dueDate,
     String? gId, // Optional Firestore ID
     required int eventId,
   }) async {
@@ -19,6 +20,7 @@ class GiftController {
       category: category,
       price: price,
       status: status,
+      dueDate: dueDate,
       gId: gId, // Pass Firestore ID or null
       eventId: eventId,
     );
@@ -61,6 +63,7 @@ class GiftController {
         category: gift.category,
         price: gift.price,
         status: gift.status,
+        dueDate: gift.dueDate,
         gId: gId, // Update Firestore ID
         eventId: gift.eventId,
       );

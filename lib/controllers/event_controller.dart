@@ -118,6 +118,7 @@ class EventController {
           'location': event['location'],
           'description': event['description'],
           'category': event['category'],
+          'eventId': event['id'],
         };
 
         // Publish event to Firestore and get Firestore's auto-generated ID
@@ -138,6 +139,7 @@ class EventController {
             'category': gift.category,
             'price': gift.price,
             'status': gift.status,
+            'duedate': gift.dueDate
           });
 
           // Update Firestore ID for the gift locally
@@ -170,6 +172,7 @@ class EventController {
               'category': gift.category,
               'price': gift.price,
               'status': gift.status,
+              'duedate': gift.dueDate,
             });
 
             // Update Firestore ID for the gift locally

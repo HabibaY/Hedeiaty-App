@@ -99,6 +99,7 @@ class _EventListScreenState extends State<EventListScreen> {
             icon: const Icon(Icons.cloud_upload),
             onPressed: () async {
               await _eventController.publishEventsAndGifts(widget.userId);
+
               _fetchEvents(); // Refresh the event list after publishing
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(

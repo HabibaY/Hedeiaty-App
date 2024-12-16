@@ -60,20 +60,21 @@ class LocalStorageService {
             category TEXT,
             price REAL,
             status INTEGER,
+            dueDate TEXT,
             gId TEXT UNIQUE,
             eventId INTEGER,
             FOREIGN KEY (eventId) REFERENCES events(uid)
           )
         ''');
-        await db.execute('''
-          CREATE TABLE friends (
-            userId INTEGER,
-            friendId INTEGER,
-            PRIMARY KEY (userId, friendId),
-            FOREIGN KEY (userId) REFERENCES users (id),
-            FOREIGN KEY (friendId) REFERENCES users (id)
-          )
-        ''');
+        // await db.execute('''
+        //   CREATE TABLE friends (
+        //     userId INTEGER,
+        //     friendId INTEGER,
+        //     PRIMARY KEY (userId, friendId),
+        //     FOREIGN KEY (userId) REFERENCES users (id),
+        //     FOREIGN KEY (friendId) REFERENCES users (id)
+        //   )
+        // ''');
         print("All tables created successfully.");
       },
     );

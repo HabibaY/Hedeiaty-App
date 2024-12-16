@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import '../storage/notification_service.dart';
 
 class FirebaseAuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
@@ -54,4 +55,28 @@ class FirebaseAuthService {
       rethrow; // Pass the error to the caller
     }
   }
+//   void listenForPledgedGifts(String userId) {
+//     gifts
+//         .where('status', isEqualTo: 'Pledged')
+//         .snapshots()
+//         .listen((snapshot) async {
+//       final events = await getEventsForUserFromFireStore(userId);
+//       final eventIds = events?.map((event) => event.id).toSet() ?? {};
+
+//       for (var docChange in snapshot.docChanges) {
+//         if (docChange.type == DocumentChangeType.added) {
+//           final data = docChange.doc.data() as Map<String, dynamic>;
+//           final eventId = data['event_id'] as String;
+//           print('Listening for pledged gifts...');
+//           print('Gift pledged: $data');
+
+//           // Check if the gift belongs to the user's events
+//           if (eventIds.contains(eventId)) {
+//             // Show the notification using the helper
+//             await NotificationHelper.showGiftNotification(data);
+//           }
+//         }
+//       }
+//     });
+//   }
 }

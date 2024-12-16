@@ -1,18 +1,200 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PledgedGiftsScreen extends StatefulWidget {
-  const PledgedGiftsScreen({super.key});
+  final String userId;
+
+  const PledgedGiftsScreen({super.key, required this.userId});
 
   @override
   _PledgedGiftsScreenState createState() => _PledgedGiftsScreenState();
 }
 
 class _PledgedGiftsScreenState extends State<PledgedGiftsScreen> {
-  // Track the pledge fulfillment status
-  final Map<String, bool> pledgeFulfillmentStatus = {
-    "Smartphone": false,
-    "Headphones": false,
-  };
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<Map<String, dynamic>> pledgedGifts = [];
+  Map<String, bool> cancelPledgeStatus = {}; // Track the toggle button state
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPledgedGifts();
+  }
+
+  Future<void> _fetchPledgedGifts() async {
+    try {
+      // Fetch pledged gift IDs
+      final pledgedDoc = await _firestore
+          .collection('users')
+          .doc(widget.userId)
+          .collection('pledged_gifts')
+          .doc('pledged_gifts_doc')
+          .get();
+
+      if (pledgedDoc.exists) {
+        List<String> pledgedGiftIds =
+            List<String>.from(pledgedDoc.data()?['gIds'] ?? []);
+
+        List<Map<String, dynamic>> fetchedGifts = [];
+
+        // Iterate over all users -> events -> gifts
+        final usersSnapshot = await _firestore.collection('users').get();
+
+        for (var userDoc in usersSnapshot.docs) {
+          final eventsSnapshot = await _firestore
+              .collection('users')
+              .doc(userDoc.id)
+              .collection('events')
+              .get();
+
+          for (var eventDoc in eventsSnapshot.docs) {
+            final giftsSnapshot = await _firestore
+                .collection('users')
+                .doc(userDoc.id)
+                .collection('events')
+                .doc(eventDoc.id)
+                .collection('gifts')
+                .get();
+
+            for (var giftDoc in giftsSnapshot.docs) {
+              if (pledgedGiftIds.contains(giftDoc.id)) {
+                final giftData = giftDoc.data();
+                fetchedGifts.add({
+                  'id': giftDoc.id,
+                  'name': giftData['name'] ?? 'No Name',
+                  'category': giftData['category'] ?? 'No Category',
+                  'price': giftData['price'] ?? 'N/A',
+                  'dueDate': giftData['dueDate'] ?? '',
+                  'status': giftData['status'] ?? false,
+                  'reference': giftDoc.reference, // For updates
+                });
+
+                cancelPledgeStatus[giftDoc.id] = false; // Initially off
+              }
+            }
+          }
+        }
+
+        setState(() {
+          pledgedGifts = fetchedGifts;
+        });
+      } else {
+        print('No pledged_gifts_doc found for userId: ${widget.userId}');
+      }
+    } catch (e) {
+      print('Error fetching pledged gifts: $e');
+    }
+  }
+
+  Future<void> _cancelPledge(String giftId, DocumentReference reference) async {
+    try {
+      // Remove gift ID from the pledged_gifts document
+      await _firestore
+          .collection('users')
+          .doc(widget.userId)
+          .collection('pledged_gifts')
+          .doc('pledged_gifts_doc')
+          .update({
+        'gIds': FieldValue.arrayRemove([giftId]),
+      });
+
+      // Set the gift status to "available" (false)
+      await reference.update({'status': false});
+
+      // Refresh the pledged list
+      _fetchPledgedGifts();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Pledge canceled successfully."),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      print('Error canceling pledge: $e');
+    }
+  }
+
+  Widget _buildPledgedGiftTile(Map<String, dynamic> gift) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      elevation: 3,
+      child: Container(
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade300,
+              blurRadius: 4.0,
+              offset: const Offset(2, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Gift details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    gift['name'],
+                    style: const TextStyle(
+                        color: Colors.purple,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Category: ${gift['category']}",
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                  Text(
+                    "Price: \$${gift['price']}",
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                  Text(
+                    "Due Date: ${gift['dueDate']}",
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+            // Cancel Pledge Toggle
+            Column(
+              children: [
+                const Text(
+                  "Cancel Pledge",
+                  style: TextStyle(
+                    color: Colors.purple,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Switch(
+                  value: cancelPledgeStatus[gift['id']] ?? false,
+                  activeColor: Colors.redAccent,
+                  onChanged: (bool value) {
+                    setState(() {
+                      cancelPledgeStatus[gift['id']] = value;
+                    });
+
+                    if (value) {
+                      _cancelPledge(gift['id'], gift['reference']);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,106 +203,19 @@ class _PledgedGiftsScreenState extends State<PledgedGiftsScreen> {
         title: const Text("My Pledged Gifts"),
         backgroundColor: Colors.purple,
       ),
-      body: ListView(
-        children: [
-          buildPledgedGiftTile(
-            context,
-            "Smartphone",
-            "Latest model smartphone, Price: \$799.99, Due: 2024-12-15",
-          ),
-          buildPledgedGiftTile(
-            context,
-            "Headphones",
-            "Noise-canceling headphones, Price: \$199.99, Due: 2024-11-30",
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 1,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-        selectedItemColor: Colors.purple,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushNamed(context, '/home');
-          } else if (index == 2) {
-            Navigator.pushNamed(context, '/profile');
-          }
-        },
-      ),
-    );
-  }
-
-  Widget buildPledgedGiftTile(
-      BuildContext context, String title, String subtitle) {
-    return Card(
-      color: Colors.purple[50], // Light purple background for cards
-      child: ListTile(
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: Colors.purple,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: Colors.black54),
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'Cancel the Pledge') {
-              // Placeholder for implementing the cancel functionality.
-            } else if (value == 'Change Delivery Date') {
-              // Placeholder for implementing the date change functionality.
-            }
-          },
-          itemBuilder: (BuildContext context) {
-            return {
-              'Cancel the Pledge',
-              'Change Delivery Date',
-            }.map((String choice) {
-              return PopupMenuItem<String>(
-                value: choice,
-                child: Text(choice),
-              );
-            }).toList()
-              ..insert(
-                0,
-                PopupMenuItem<String>(
-                  child: StatefulBuilder(
-                    builder: (BuildContext context, setState) {
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text("Pledge Fulfilled"),
-                          Switch(
-                            value: pledgeFulfillmentStatus[title] ?? false,
-                            onChanged: (bool value) {
-                              setState(() {
-                                pledgeFulfillmentStatus[title] = value;
-                              });
-                              Navigator.pop(context); // Close the menu
-                              this.setState(() {});
-                            },
-                            activeColor: Colors.purple,
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              );
-          },
-          icon: const Icon(
-            Icons.more_vert,
-            color: Colors.purple, // Themed color for three-dot icon
-          ),
-        ),
-      ),
+      body: pledgedGifts.isEmpty
+          ? const Center(
+              child: Text(
+                "No pledged gifts available.",
+                style: TextStyle(color: Colors.black54, fontSize: 16),
+              ),
+            )
+          : ListView.builder(
+              itemCount: pledgedGifts.length,
+              itemBuilder: (context, index) {
+                return _buildPledgedGiftTile(pledgedGifts[index]);
+              },
+            ),
     );
   }
 }
