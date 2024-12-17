@@ -26,12 +26,26 @@ class _HomeScreenState extends State<HomeScreen> {
     if (userId != null) {
       _fetchFriendsList(userId);
       _fetchUserProfileImage(userId);
+      _initializeGiftNotifications();
     }
     //_initializeGiftNotifications();
   }
 
+  void _initializeGiftNotifications() async {
+    try {
+      final currentUser = await _authService.getCurrentUser();
+      if (currentUser != null) {
+        print("Current user ID: ${currentUser.uid}");
+        _authService.listenForPledgedGifts(currentUser.uid);
+      } else {
+        print("No user logged in.");
+      }
+    } catch (e) {
+      print("Error initializing gift notifications: $e");
+    }
+  }
+
   Future<void> _fetchUserProfileImage(String userId) async {
-    final userId = Provider.of<UserProvider>(context, listen: false).userId;
     try {
       final userId = Provider.of<UserProvider>(context, listen: false).userId;
       if (userId != null) {
@@ -218,6 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
+      // Step 1: Fetch the user's friends list
       final friendsSnapshot = await _firestore
           .collection('users')
           .doc(userId)
@@ -226,15 +241,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
       List<Map<String, dynamic>> friendsData = [];
 
+      // Step 2: Loop through each friend and fetch their details
       for (var doc in friendsSnapshot.docs) {
         final friendData = doc.data();
         final friendId = friendData['userId'];
-        final friendEventsSnapshot = await _firestore
-            .collection('users')
-            .doc(friendId)
-            .collection('events')
-            .get();
 
+        if (friendId == null) {
+          print("Friend ID is null for document: ${doc.id}");
+          continue;
+        }
+
+        // Step 3: Fetch friend's profile data dynamically from Firestore
         final friendUserSnapshot =
             await _firestore.collection('users').doc(friendId).get();
 
@@ -249,19 +266,29 @@ class _HomeScreenState extends State<HomeScreen> {
           continue;
         }
 
+        // Step 4: Fetch the number of events for this friend
+        final friendEventsSnapshot = await _firestore
+            .collection('users')
+            .doc(friendId)
+            .collection('events')
+            .get();
+
+        // Step 5: Add friend's data to the list
         friendsData.add({
           'id': friendId,
           'name': friendUserData['name'] ?? 'Unknown',
           'phoneNumber': friendUserData['phoneNumber'] ?? 'N/A',
-          'profilImagePath':
+          'profileImagePath':
               friendUserData['profileImagePath'] ?? 'assets/default_avatar.png',
           'eventCount': friendEventsSnapshot.size,
         });
       }
 
+      // Step 6: Update the UI with the fetched data
       setState(() {
         _friendsList = friendsData;
       });
+
       print('Updated _friendsList: $_friendsList');
     } catch (e) {
       print('Error fetching friends: $e');
@@ -281,54 +308,66 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text("Event Details"),
-          content: eventsSnapshot.docs.isEmpty
-              ? const Text("No events available")
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: eventsSnapshot.docs.map((eventDoc) {
-                    final eventData = eventDoc.data();
-                    final eventId = eventDoc.id; // Capture eventId
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              eventData['name'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text("Date: ${eventData['date']}"),
-                            Text("Location: ${eventData['location']}"),
-                            Text("Description: ${eventData['description']}"),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context); // Close popup
-                                Navigator.pushNamed(
-                                  context,
-                                  '/friendGiftList',
-                                  arguments: {
-                                    'friendId': friendId,
-                                    'eventId': eventId,
+          content: SizedBox(
+            width: double
+                .maxFinite, // Ensures the content uses max available width
+            height:
+                MediaQuery.of(context).size.height * 0.5, // Limit dialog height
+            child: eventsSnapshot.docs.isEmpty
+                ? const Center(child: Text("No events available"))
+                : SingleChildScrollView(
+                    // Makes content scrollable
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: eventsSnapshot.docs.map((eventDoc) {
+                        final eventData = eventDoc.data();
+                        final eventId = eventDoc.id; // Capture eventId
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8.0),
+                          elevation: 3,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  eventData['name'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text("Date: ${eventData['date']}"),
+                                Text("Location: ${eventData['location']}"),
+                                Text(
+                                    "Description: ${eventData['description']}"),
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context); // Close popup
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/friendGiftList',
+                                      arguments: {
+                                        'friendId': friendId,
+                                        'eventId': eventId,
+                                      },
+                                    );
                                   },
-                                );
-                              },
-                              child: const Text(
-                                "Show Gifts",
-                                style: TextStyle(color: Colors.purple),
-                              ),
+                                  child: const Text(
+                                    "Show Gifts",
+                                    style: TextStyle(color: Colors.purple),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -564,10 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: CircleAvatar(
                                     radius: 30,
                                     backgroundImage:
-                                        profileImagePath.startsWith('http')
-                                            ? NetworkImage(profileImagePath)
-                                            : AssetImage(profileImagePath)
-                                                as ImageProvider,
+                                        AssetImage(friend['profileImagePath']),
                                   ),
                                 ),
                                 Expanded(

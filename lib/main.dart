@@ -22,9 +22,9 @@ void main() async {
   await Firebase.initializeApp(); // Initialize Firebase
   // Initialize notification settings
   // Initialize NotificationHelper
-  await NotificationHelper.initialize();
+  //await NotificationHelper.initialize();
   // Register FirebaseHelper singleton
-  // getIt.registerSingleton<FirebaseHelper>(FirebaseHelper());
+  // getIt.registerSingleton<FirebaseAuthService>(FirebaseAuthService());
 
   runApp(
     MultiProvider(

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import '../storage/notification_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirebaseAuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
@@ -55,28 +56,75 @@ class FirebaseAuthService {
       rethrow; // Pass the error to the caller
     }
   }
-//   void listenForPledgedGifts(String userId) {
-//     gifts
-//         .where('status', isEqualTo: 'Pledged')
-//         .snapshots()
-//         .listen((snapshot) async {
-//       final events = await getEventsForUserFromFireStore(userId);
-//       final eventIds = events?.map((event) => event.id).toSet() ?? {};
 
-//       for (var docChange in snapshot.docChanges) {
-//         if (docChange.type == DocumentChangeType.added) {
-//           final data = docChange.doc.data() as Map<String, dynamic>;
-//           final eventId = data['event_id'] as String;
-//           print('Listening for pledged gifts...');
-//           print('Gift pledged: $data');
+  void listenForPledgedGifts(String userId) async {
+    try {
+      print("Fetching events for userId: $userId");
 
-//           // Check if the gift belongs to the user's events
-//           if (eventIds.contains(eventId)) {
-//             // Show the notification using the helper
-//             await NotificationHelper.showGiftNotification(data);
-//           }
-//         }
-//       }
-//     });
-//   }
+      // Step 1: Fetch user's events with their Firestore eId
+      final eventsSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('events')
+          .get();
+
+      print("Fetched ${eventsSnapshot.docs.length} events for user: $userId");
+
+      if (eventsSnapshot.docs.isEmpty) {
+        print("No events found for user: $userId");
+        return;
+      }
+
+      // Step 2: For each event, set up a listener on its 'gifts' collection
+      for (var eventDoc in eventsSnapshot.docs) {
+        final eId = eventDoc.id; // Firestore eId for the event
+        print("Setting up listener for gifts under event: $eId");
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('events')
+            .doc(eId)
+            .collection('gifts')
+            .snapshots()
+            .listen((snapshot) {
+          print("Raw snapshot data for event $eId: ${snapshot.docs}");
+
+          for (var doc in snapshot.docs) {
+            final giftData = doc.data();
+            print("Gift Data: $giftData");
+          }
+        });
+
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('events')
+            .doc(eId)
+            .collection('gifts')
+            .where('status', isEqualTo: true) // Match boolean true
+            .snapshots()
+            .listen((snapshot) async {
+          print(
+              "Received ${snapshot.docs.length} pledged gifts for event: $eId");
+
+          for (var docChange in snapshot.docChanges) {
+            if (docChange.type == DocumentChangeType.added) {
+              final giftData = docChange.doc.data() as Map<String, dynamic>?;
+              if (giftData != null) {
+                print("Pledged gift found: ${giftData['name']}");
+
+                // Show notification for the pledged gift
+                await NotificationHelper.showGiftNotification({
+                  'name': giftData['name'] ?? 'Unnamed Gift',
+                  'friend_name': giftData['friend_name'] ?? 'A friend',
+                });
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print("Error listening for pledged gifts: $e");
+    }
+  }
 }
