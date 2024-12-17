@@ -12,6 +12,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final FirebaseAuthService _authService = FirebaseAuthService();
   final TextEditingController _searchController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> _friendsList = [];
@@ -359,12 +360,80 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Back button handling with logout confirmation
+  Future<bool> _onWillPop() async {
+    return await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Logout Confirmation"),
+            content: const Text("Are you sure you want to log out?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text("No"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await _authService.signOut(); // Call logout method
+                  if (context.mounted) {
+                    Provider.of<UserProvider>(context, listen: false)
+                        .setUserId(""); // Clear user ID
+                    Navigator.of(context)
+                        .pushNamedAndRemoveUntil('/login', (route) => false);
+                  }
+                },
+                child: const Text("Yes"),
+              ),
+            ],
+          ),
+        ) ??
+        false; // Default to false if dialog is dismissed
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Home"),
         backgroundColor: Colors.purple,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back), // Custom back button
+          onPressed: () async {
+            // Show a confirmation dialog when back button is pressed
+            final shouldLogout = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Logout Confirmation"),
+                content: const Text("Are you sure you want to log out?"),
+                actions: [
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.of(context).pop(false), // Close popup
+                    child: const Text("No"),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop(true); // Confirm logout
+                    },
+                    child: const Text("Yes"),
+                  ),
+                ],
+              ),
+            );
+
+            if (shouldLogout == true) {
+              // Logout logic
+              final authService = FirebaseAuthService();
+              await authService.signOut();
+
+              if (context.mounted) {
+                // Navigate to login screen
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('/login', (route) => false);
+              }
+            }
+          },
+        ),
       ),
       body: Stack(
         children: [

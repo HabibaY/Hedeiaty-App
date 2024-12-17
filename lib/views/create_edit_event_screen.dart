@@ -72,32 +72,36 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
     }
 
     if (widget.eventId == null) {
-      // Add a new event with `isPublished: false` and `eId: null`
+      // Add a new event
       await _eventController.addEvent(
         name: name,
         date: date,
         location: location,
         description: description,
         category: _category!,
-        isPublished: false, // Not published initially
+        isPublished: false, // New events are not published by default
         userId: widget.userId,
-        eId: null, // Firestore ID will be null until published
+        eId: null, // Firestore ID is null for new events
       );
     } else {
       // Update an existing event
-      final event = Event(
-        id: widget.eventId,
-        name: name,
-        date: date,
-        location: location,
-        description: description,
-        category: _category!,
-        isPublished: false, // Retain the current unpublished state
-        //eId: null,
-        userId: widget.userId,
-        // Ensure eId is only set during publishing
-      );
-      await _eventController.updateEvent(event);
+      final event = await _eventController.getEventById(widget.eventId!);
+      if (event != null) {
+        final updatedEvent = Event(
+          id: event.id,
+          name: name,
+          date: date,
+          location: location,
+          description: description,
+          category: _category!,
+          isPublished: event.isPublished, // Retain the published state
+          eId: event.eId, // Retain Firestore ID if it exists
+          userId: widget.userId,
+        );
+        await _eventController.updateEvent(updatedEvent);
+      } else {
+        _showSnackbar("Event not found.");
+      }
     }
 
     Navigator.pop(context, true); // Return to Event List Screen

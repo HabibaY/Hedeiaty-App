@@ -262,4 +262,30 @@ class LocalStorageService {
       whereArgs: [1],
     );
   }
+
+  Future<String?> getUserIdForEvent(int eventId) async {
+    final db = await database;
+    try {
+      // Query the 'events' table to fetch the userId where event ID matches
+      final result = await db.query(
+        'events',
+        columns: ['userId'], // Select only the userId
+        where: 'id = ?', // Filter condition
+        whereArgs: [eventId],
+        limit: 1,
+      );
+
+      if (result.isNotEmpty) {
+        final userId = result.first['userId'] as String?;
+        print("Retrieved userId: $userId for eventId: $eventId");
+        return userId;
+      } else {
+        print("No userId found for eventId: $eventId");
+        return null;
+      }
+    } catch (e) {
+      print("Error fetching userId for eventId from local storage: $e");
+      return null;
+    }
+  }
 }

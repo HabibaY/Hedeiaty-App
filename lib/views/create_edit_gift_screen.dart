@@ -100,6 +100,7 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
     final price = double.tryParse(_priceController.text.trim());
     final duedate = _dueDateController.text.trim();
 
+    // Validation: Check for empty fields
     if (name.isEmpty ||
         description.isEmpty ||
         category.isEmpty ||
@@ -107,6 +108,15 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
         price == null) {
       _showSnackbar("All fields are required.");
       return;
+    }
+
+    // Validate due date before saving
+    final selectedDueDate = DateTime.tryParse(duedate);
+    if (selectedDueDate != null && selectedDueDate.isAfter(_eventDate!)) {
+      _showSnackbar(
+        "Due date must be before the event date (${_eventDate!.toLocal().toString().split(' ')[0]}).",
+      );
+      return; // Block save action
     }
 
     if (widget.giftId == null) {
@@ -215,9 +225,9 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
                   controller: _dueDateController,
                   readOnly: true,
                   decoration: const InputDecoration(
-                    labelText: "Due Date",
-                    prefixIcon: Icon(Icons.calendar_today),
-                  ),
+                      labelText: "Due Date",
+                      prefixIcon: Icon(Icons.calendar_today)),
+                  enabled: isEditable,
                   onTap: () async {
                     DateTime? selectedDate = await showDatePicker(
                       context: context,
@@ -228,11 +238,11 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
 
                     if (selectedDate != null) {
                       // Validate that due date is after the event date
-                      if (selectedDate.isBefore(_eventDate!)) {
+                      if (selectedDate.isAfter(_eventDate!)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              "Due date must be after the event date (${_eventDate!.toLocal().toString().split(' ')[0]}).",
+                              "Due date must be before the event date (${_eventDate!.toLocal().toString().split(' ')[0]}).",
                             ),
                             backgroundColor: Colors.red,
                           ),

@@ -217,19 +217,12 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
 
   Future<void> _updateProfilePicture(String userId, String imagePath) async {
     try {
-      // Use UserController to update Firestore and local storage
       final userController = UserController();
 
-      // Update profile image locally and in Firestore
+      // Update profile image via controller
       await userController.updateUserProfileImage(userId, imagePath);
 
-      // Update Firestore directly (redundant if already handled in controller but kept for clarity)
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .update({'profileImagePath': imagePath});
-
-      // Update UI
+      // Update UI only if Firestore update succeeds
       setState(() {
         profileImagePath = imagePath;
       });

@@ -144,38 +144,51 @@ class UserController {
   // Update the profile image path in local storage
 // Update the profile image path in local storage
   Future<void> updateUserProfileImage(String uid, String newImagePath) async {
-    try {
-      // Fetch the current user
-      List<User> users = await getUsers();
-      User? userToUpdate;
+    bool firestoreUpdated = false;
 
-      for (var user in users) {
-        if (user.uid == uid) {
-          userToUpdate = user;
-          break;
-        }
+    try {
+      // Step 1: Check if Firestore document exists
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      if (!userDoc.exists) {
+        throw Exception("User document does not exist in Firestore.");
       }
 
+      // Step 2: Update Firestore with the new profile image path
+      await _firestore.collection('users').doc(uid).update({
+        'profileImagePath': newImagePath,
+      });
+      firestoreUpdated = true;
+      print('Profile image updated in Firestore.');
+
+      // Step 3: Update Local Storage
+      List<User> users = await getUsers();
+      User? userToUpdate = users.cast<User?>().firstWhere(
+            (user) => user?.uid == uid,
+            orElse: () => null,
+          );
+
       if (userToUpdate != null) {
-        // Create a new user object with the updated profileImagePath
         User updatedUser = User(
+          id: userToUpdate.id,
           uid: userToUpdate.uid,
           name: userToUpdate.name,
           email: userToUpdate.email,
           phoneNumber: userToUpdate.phoneNumber,
           notificationsEnabled: userToUpdate.notificationsEnabled,
           password: userToUpdate.password,
-          profileImagePath: newImagePath, // Update profile image path
+          profileImagePath: newImagePath,
         );
 
-        // Save the updated user back to local storage
         await updateUser(updatedUser);
         print('User updated locally: ${updatedUser.toMap()}');
       } else {
         print('User not found locally, skipping local update.');
       }
     } catch (e) {
-      print('Error updating local storage: $e');
+      print('Error updating profile image: $e');
+      if (!firestoreUpdated) {
+        throw Exception("Failed to update Firestore: $e");
+      }
     }
   }
 

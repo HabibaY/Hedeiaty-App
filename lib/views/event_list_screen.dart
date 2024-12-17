@@ -49,8 +49,26 @@ class _EventListScreenState extends State<EventListScreen> {
   }
 
   Future<void> _deleteEvent(int eventId) async {
-    await _eventController.deleteEvent(eventId);
-    _fetchEvents();
+    bool success = await _eventController.deleteEvent(eventId);
+
+    if (success) {
+      // Fetch updated event list after deletion
+      _fetchEvents();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Event deleted successfully."),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      // Show error message if the event is published
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Cannot delete published events."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   List<Event> _filterEvents(String status) {
@@ -64,11 +82,13 @@ class _EventListScreenState extends State<EventListScreen> {
             .where((e) => DateTime.parse(e.date).isBefore(currentMonthStart))
             .toList();
       case "Current":
-        return _events
-            .where((e) =>
-                DateTime.parse(e.date).isAfter(currentMonthStart) &&
-                DateTime.parse(e.date).isBefore(currentMonthEnd))
-            .toList();
+        return _events.where((e) {
+          final eventDate = DateTime.parse(e.date);
+          return (eventDate.isAfter(currentMonthStart) ||
+                  eventDate.isAtSameMomentAs(currentMonthStart)) &&
+              (eventDate.isBefore(currentMonthEnd) ||
+                  eventDate.isAtSameMomentAs(currentMonthEnd));
+        }).toList();
       case "Upcoming":
         return _events
             .where((e) => DateTime.parse(e.date).isAfter(currentMonthEnd))

@@ -88,15 +88,106 @@ class EventController {
 
   /// Update an existing event
   Future<void> updateEvent(Event updatedEvent) async {
-    await _localStorageService.updateEvent(updatedEvent.toMap());
+    try {
+      // Step 1: Update local database
+      await _localStorageService.updateEvent(updatedEvent.toMap());
+      print('Event updated locally: ${updatedEvent.toMap()}');
+
+      // Step 2: Update Firestore if the event is published
+      if (updatedEvent.isPublished && updatedEvent.eId != null) {
+        await _firestore
+            .collection('users')
+            .doc(updatedEvent.userId)
+            .collection('events')
+            .doc(updatedEvent.eId) // Firestore ID for the event
+            .update({
+          'name': updatedEvent.name,
+          'date': updatedEvent.date,
+          'location': updatedEvent.location,
+          'description': updatedEvent.description,
+          'category': updatedEvent.category,
+        });
+        print('Event updated in Firestore: ${updatedEvent.eId}');
+      } else {
+        print('cannot update firestore');
+      }
+    } catch (e) {
+      print('Error updating event: $e');
+      rethrow;
+    }
   }
 
   /// Delete an event by its ID
-  Future<void> deleteEvent(int eventId) async {
-    await _localStorageService.deleteEvent(eventId);
+  /// Delete an event by its ID (and associated gifts if not published)
+  Future<bool> deleteEvent(int eventId) async {
+    try {
+      // Step 1: Retrieve the event by ID
+      Event? event = await getEventById(eventId);
+
+      if (event != null) {
+        if (event.eId == null) {
+          // Event is not published → delete associated gifts
+          print("Deleting associated gifts for event ID: $eventId");
+          await GiftController().deleteGiftsForEvent(eventId);
+
+          // Delete the event from the local database
+          await _localStorageService.deleteEvent(eventId);
+          print("Event deleted locally: $eventId");
+          return true; // Deletion successful
+        } else {
+          print("Event is published and cannot be deleted: $eventId");
+          return false; // Deletion not allowed
+        }
+      } else {
+        print("Event not found for ID: $eventId");
+        return false; // Event does not exist
+      }
+    } catch (e) {
+      print("Error deleting event: $e");
+      rethrow;
+    }
   }
 
   /// Fetch a single event by its ID (useful for editing)
+  Future<String?> getEventEid(int eventId) async {
+    try {
+      // Fetch raw event maps from local storage
+      final eventMaps = await _localStorageService.getEvents();
+
+      // Convert raw maps to Event objects
+      final events = eventMaps.map((map) => Event.fromMap(map)).toList();
+
+      // Find the event with matching eventId
+      final event = events.firstWhere(
+        (event) => event.id == eventId,
+        orElse: () => Event(
+          // Return an empty Event object instead of null
+          id: -1,
+          eId: null,
+          userId: '',
+          name: '',
+          location: '',
+          description: '',
+          category: '',
+          date: '',
+          isPublished: false,
+        ),
+      );
+
+      // Check if the found event has a valid eId
+      if (event.id != -1 && event.eId != null) {
+        print("Found Firestore eId for eventId $eventId: ${event.eId}");
+        return event.eId; // Return Firestore document ID (eId)
+      } else {
+        print("No eId found for eventId: $eventId");
+        return null;
+      }
+    } catch (e) {
+      print("Error fetching eId for eventId $eventId: $e");
+      return null;
+    }
+  }
+
   Future<Event?> getEventById(int eventId) async {
     Map<String, dynamic>? eventMap =
         await _localStorageService.getEventById(eventId);
@@ -118,39 +209,64 @@ class EventController {
           'location': event['location'],
           'description': event['description'],
           'category': event['category'],
-          'eventId': event['id'],
+          'eventId': event['id'], // Local database ID
         };
 
-        // Publish event to Firestore and get Firestore's auto-generated ID
-        DocumentReference eventRef = await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('events')
-            .add(eventData);
-        String eventId = eventRef.id;
+        String? eventId; // Firestore document ID
 
-        // Fetch associated gifts for the event
-        List<Gift> gifts = await GiftController().getGiftsForEvent(event['id']);
-        for (var gift in gifts) {
-          // Publish gift to Firestore
-          DocumentReference giftRef = await eventRef.collection('gifts').add({
-            'name': gift.name,
-            'description': gift.description,
-            'category': gift.category,
-            'price': gift.price,
-            'status': gift.status,
-            'duedate': gift.dueDate
-          });
+        // Check if the event is already published (eId exists)
+        if (event['eId'] != null) {
+          // Update the existing Firestore document
+          eventId = event['eId'];
+          await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('events')
+              .doc(eventId)
+              .update(eventData);
 
-          // Update Firestore ID for the gift locally
-          await GiftController().setGiftFirestoreId(gift.id!, giftRef.id);
+          print('Updated event in Firestore: $eventId');
+        } else {
+          // Publish event to Firestore and get Firestore's auto-generated ID
+          DocumentReference eventRef = await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('events')
+              .add(eventData);
+          eventId = eventRef.id;
+
+          // Mark the event as published locally and update the `eId`
+          await _localStorageService.markEventAsPublished(event['id'], eventId);
+          print('Created new event in Firestore: $eventId');
         }
 
-        // Mark the event as published locally and update the `eId`
-        await _localStorageService.markEventAsPublished(event['id'], eventId);
+        // Step 2: Fetch associated gifts for the event
+        List<Gift> gifts = await GiftController().getGiftsForEvent(event['id']);
+        for (var gift in gifts) {
+          if (gift.gId == null) {
+            // Publish gift to Firestore
+            DocumentReference giftRef = await _firestore
+                .collection('users')
+                .doc(userId)
+                .collection('events')
+                .doc(eventId)
+                .collection('gifts')
+                .add({
+              'name': gift.name,
+              'description': gift.description,
+              'category': gift.category,
+              'price': gift.price,
+              'status': gift.status,
+              'duedate': gift.dueDate,
+            });
+
+            // Update Firestore ID for the gift locally
+            await GiftController().setGiftFirestoreId(gift.id!, giftRef.id);
+          }
+        }
       }
 
-      // Step 2: Handle newly added gifts for already published events
+      // Step 3: Handle newly added gifts for already published events
       List<Map<String, dynamic>> publishedEvents =
           await _localStorageService.getPublishedEvents();
       for (var event in publishedEvents) {
@@ -183,6 +299,22 @@ class EventController {
     } catch (e) {
       print('Error publishing events and gifts: $e');
       rethrow;
+    }
+  }
+
+  Future<String?> getUserIdForEvent(int eventId) async {
+    try {
+      final userId = await _localStorageService.getUserIdForEvent(eventId);
+      if (userId != null) {
+        print("Found userId: $userId for eventId: $eventId");
+        return userId;
+      } else {
+        print("UserId not found for eventId: $eventId");
+        return null;
+      }
+    } catch (e) {
+      print("Error in EventController fetching userId: $e");
+      return null;
     }
   }
 }
