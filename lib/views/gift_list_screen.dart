@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../controllers/gift_controller.dart';
 import '../models/gift.dart';
 import 'create_edit_gift_screen.dart';
+import 'dart:convert'; // For base64 image decoding
 
 class GiftListScreen extends StatefulWidget {
   final int eventId;
@@ -51,13 +52,18 @@ class _GiftListScreenState extends State<GiftListScreen> {
 
           // Gift list
           final gifts = snapshot.data!;
-          return ListView.builder(
-            itemCount: gifts.length,
-            itemBuilder: (context, index) {
-              final gift = gifts[index];
-              print("Gift: ${gift.name}, Status: ${gift.status}"); // Debug
-              return _buildGiftCard(context, gift);
-            },
+          return SingleChildScrollView(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(), // Smooth scroll
+              shrinkWrap: true, // Allow ListView inside SingleChildScrollView
+              itemCount: gifts.length,
+              itemBuilder: (context, index) {
+                final gift = gifts[index];
+                print("Gift object: ID=${gift.id}, Name=${gift.name}"); // Debug
+
+                return _buildGiftCard(context, gift);
+              },
+            ),
           );
         },
       ),
@@ -65,9 +71,24 @@ class _GiftListScreenState extends State<GiftListScreen> {
         onPressed: () async {
           await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) =>
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
                   CreateEditGiftScreen(eventId: widget.eventId),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                const begin = Offset(1.0, 0.0); // Start from the right
+                const end = Offset.zero;
+                const curve = Curves.easeInOut;
+
+                final tween = Tween(begin: begin, end: end)
+                    .chain(CurveTween(curve: curve));
+                final offsetAnimation = animation.drive(tween);
+
+                return SlideTransition(
+                  position: offsetAnimation,
+                  child: child,
+                );
+              },
             ),
           );
           setState(() {}); // Refresh the screen after returning
@@ -85,6 +106,17 @@ class _GiftListScreenState extends State<GiftListScreen> {
           : Colors.green[100], // Red for pledged, green for unpledged
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: ListTile(
+        leading: gift.imagePath != null && gift.imagePath!.isNotEmpty
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: Image.memory(
+                  base64Decode(gift.imagePath!),
+                  height: 60,
+                  width: 60,
+                  fit: BoxFit.cover,
+                ),
+              )
+            : const Icon(Icons.image, color: Colors.grey), // Placeholder icon
         title: Text(
           gift.name,
           style: const TextStyle(
@@ -92,7 +124,17 @@ class _GiftListScreenState extends State<GiftListScreen> {
             color: Colors.purple,
           ),
         ),
-        subtitle: Text("Category: ${gift.category}, Price: \$${gift.price}"),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Category: ${gift.category}, Price: \$${gift.price}"),
+            if (gift.status == true)
+              const Text(
+                "Status: Pledged",
+                style: TextStyle(color: Colors.red),
+              ),
+          ],
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -117,13 +159,9 @@ class _GiftListScreenState extends State<GiftListScreen> {
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: () async {
-                if (gift.gId != null) {
-                  // Confirm valid Firestore ID before deleting
-                  await _giftController.deleteGift(gift.id!);
-                  print("Gift deleted successfully: ${gift.name}");
-                } else {
-                  print("Error: Invalid gift ID for deletion.");
-                }
+                await _giftController.deleteGift(gift.id!);
+                print("Gift deleted successfully: ${gift.name}");
+                setState(() {}); // Refresh the screen after deletion
               },
             ),
           ],

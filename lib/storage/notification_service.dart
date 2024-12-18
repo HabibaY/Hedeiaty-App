@@ -47,6 +47,34 @@ class NotificationHelper {
     print("Notification shown: $giftName pledged by $friendName");
   }
 
+  // Show notification for cancelled pledges
+  static Future<void> showPledgeCancelledNotification(
+      Map<String, dynamic> giftData) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'pledge_cancelled_channel',
+      'Pledge Cancelled',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+    );
+
+    const NotificationDetails notificationDetails =
+        NotificationDetails(android: androidDetails);
+
+    final friendName = giftData['friend_name'] ?? 'A friend';
+    final giftName = giftData['name'] ?? 'a gift';
+
+    await _notificationsPlugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      "Pledge Cancelled: $giftName",
+      "$friendName has cancelled their pledge for $giftName.",
+      notificationDetails,
+    );
+
+    print("Notification shown: $giftName pledge cancelled by $friendName");
+  }
+
   // Optional: Cancel all notifications
   static Future<void> cancelAllNotifications() async {
     await _notificationsPlugin.cancelAll();

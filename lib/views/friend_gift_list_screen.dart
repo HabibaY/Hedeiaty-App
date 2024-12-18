@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import 'package:intl/intl.dart';
+import 'dart:convert';
 
 class FriendGiftListScreen extends StatefulWidget {
   const FriendGiftListScreen({super.key});
@@ -11,31 +13,32 @@ class FriendGiftListScreen extends StatefulWidget {
 }
 
 class _FriendGiftListScreenState extends State<FriendGiftListScreen> {
-  Future<List<Map<String, dynamic>>> _fetchGifts(
-      String friendId, String eventId) async {
+  Stream<List<Map<String, dynamic>>> _fetchGifts(
+      String friendId, String eventId) {
     try {
-      final giftsSnapshot = await FirebaseFirestore.instance
+      // Stream gifts collection
+      return FirebaseFirestore.instance
           .collection('users')
           .doc(friendId)
           .collection('events')
           .doc(eventId)
           .collection('gifts')
-          .where('status', isEqualTo: false)
-          .get();
-
-      return giftsSnapshot.docs
-          .map((doc) => {
-                'id': doc.id,
-                'name': doc.data()['name'] ?? 'No Name',
-                'category': doc.data()['category'] ?? 'No Category',
-                'price': doc.data()['price'] ?? 'N/A',
-                'status': doc.data()['status'] ?? false,
-                'dueDate': doc.data()['dueDate'] ?? 'No Due Date',
-              })
-          .toList();
+          .where('status', isEqualTo: false) // Only unpledged gifts
+          .snapshots()
+          .map((snapshot) => snapshot.docs.map((doc) {
+                return {
+                  'id': doc.id,
+                  'name': doc.data()['name'] ?? 'No Name',
+                  'category': doc.data()['category'] ?? 'No Category',
+                  'price': doc.data()['price'] ?? 'N/A',
+                  'status': doc.data()['status'] ?? false,
+                  'dueDate': doc.data()['dueDate'] ?? 'No due Date',
+                  'imagePath': doc.data()['imagePath'], // Include imagePath
+                };
+              }).toList());
     } catch (e) {
-      print("Error fetching gifts: $e");
-      return [];
+      print("Error streaming gifts: $e");
+      return Stream.empty();
     }
   }
 
@@ -84,7 +87,13 @@ class _FriendGiftListScreenState extends State<FriendGiftListScreen> {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final friendId = args['friendId'];
     final eventId = args['eventId'];
+    final eventDate = args['date'];
     final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    // Calculate "eventDate - 2 days"
+    final parsedEventDate = DateTime.parse(eventDate); // Parse date string
+    final adjustedDueDate = parsedEventDate.subtract(const Duration(days: 2));
+    final formattedDueDate =
+        DateFormat('yyyy-MM-dd').format(adjustedDueDate); // Format the date
 
     return Scaffold(
       appBar: AppBar(
@@ -93,8 +102,8 @@ class _FriendGiftListScreenState extends State<FriendGiftListScreen> {
       ),
       body: Container(
         color: const Color(0xFFF3E5F5), // Light purple background
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _fetchGifts(friendId, eventId),
+        child: StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _fetchGifts(friendId, eventId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -118,6 +127,16 @@ class _FriendGiftListScreenState extends State<FriendGiftListScreen> {
                 itemCount: gifts.length,
                 itemBuilder: (context, index) {
                   final gift = gifts[index];
+                  final imagePath = gift['imagePath'];
+
+                  // Decode imagePath if available
+                  final decodedImage = imagePath != null
+                      ? Image.memory(
+                          base64Decode(imagePath),
+                          fit: BoxFit.cover,
+                        )
+                      : const Icon(Icons.image, size: 50, color: Colors.grey);
+
                   return Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -135,6 +154,17 @@ class _FriendGiftListScreenState extends State<FriendGiftListScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: ListTile(
+                        leading: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: decodedImage,
+                          ),
+                        ),
                         title: Text(
                           gift['name'],
                           style: const TextStyle(

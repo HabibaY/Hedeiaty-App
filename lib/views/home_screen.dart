@@ -28,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _fetchUserProfileImage(userId);
       _initializeGiftNotifications();
     }
-    //_initializeGiftNotifications();
   }
 
   void _initializeGiftNotifications() async {
@@ -350,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       context,
                                       '/friendGiftList',
                                       arguments: {
+                                        'date': eventData['date'],
                                         'friendId': friendId,
                                         'eventId': eventId,
                                       },

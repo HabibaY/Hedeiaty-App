@@ -257,7 +257,10 @@ class EventController {
               'category': gift.category,
               'price': gift.price,
               'status': gift.status,
-              'duedate': gift.dueDate,
+              'dueDate': gift.dueDate,
+              if (gift.imagePath != null)
+                'imagePath': gift.imagePath, // Add imagePath conditionally
+              'giftId': gift.id,
             });
 
             // Update Firestore ID for the gift locally
@@ -274,8 +277,48 @@ class EventController {
         List<Gift> gifts = await GiftController().getGiftsForEvent(event['id']);
 
         for (var gift in gifts) {
-          if (gift.gId == null) {
-            // Publish the gift to Firestore if it doesn't have a Firestore ID
+          // Step 1: Fetch all existing gifts from Firestore for the current event
+          final firestoreGiftsSnapshot = await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('events')
+              .doc(event['eId'])
+              .collection('gifts')
+              .get();
+
+          // Step 2: Check if a gift with the same local `giftId` already exists
+          final existingGiftDoc = firestoreGiftsSnapshot.docs
+              .cast<QueryDocumentSnapshot<Map<String, dynamic>>?>()
+              .firstWhere(
+                (doc) =>
+                    doc!.data()['giftId'] ==
+                    gift.id, // Compare local ID with Firestore's giftId
+                orElse: () => null, // Return null if not found
+              );
+
+          if (existingGiftDoc != null) {
+            // Step 3: Update the existing gift in Firestore
+            await _firestore
+                .collection('users')
+                .doc(userId)
+                .collection('events')
+                .doc(event['eId'])
+                .collection('gifts')
+                .doc(existingGiftDoc.id)
+                .update({
+              'name': gift.name,
+              'description': gift.description,
+              'category': gift.category,
+              'price': gift.price,
+              'status': gift.status,
+              'dueDate': gift.dueDate,
+              if (gift.imagePath != null)
+                'imagePath': gift.imagePath, // Add imagePath conditionally
+            });
+
+            print("Updated existing gift: ${existingGiftDoc.id}");
+          } else {
+            // Step 4: Publish a new gift to Firestore
             DocumentReference giftRef = await _firestore
                 .collection('users')
                 .doc(userId)
@@ -288,11 +331,15 @@ class EventController {
               'category': gift.category,
               'price': gift.price,
               'status': gift.status,
-              'duedate': gift.dueDate,
+              'dueDate': gift.dueDate,
+              if (gift.imagePath != null)
+                'imagePath': gift.imagePath, // Add imagePath conditionally
+              'giftId': gift.id, // Save the local gift ID
             });
 
             // Update Firestore ID for the gift locally
             await GiftController().setGiftFirestoreId(gift.id!, giftRef.id);
+            print("Added new gift to Firestore: ${giftRef.id}");
           }
         }
       }

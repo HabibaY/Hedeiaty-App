@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../models/gift.dart';
 
 class LocalStorageService {
   static final LocalStorageService _instance = LocalStorageService._internal();
@@ -61,6 +62,7 @@ class LocalStorageService {
             price REAL,
             status INTEGER,
             dueDate TEXT,
+            imagepath TEXT,
             gId TEXT UNIQUE,
             eventId INTEGER,
             FOREIGN KEY (eventId) REFERENCES events(uid)
@@ -287,5 +289,15 @@ class LocalStorageService {
       print("Error fetching userId for eventId from local storage: $e");
       return null;
     }
+  }
+
+  Future<Gift?> getGiftByGId(String? gId) async {
+    if (gId == null) return null;
+    final db = await database; // Your local DB instance
+    final result = await db.query('gifts', where: 'gId = ?', whereArgs: [gId]);
+    if (result.isNotEmpty) {
+      return Gift.fromMap(result.first); // Convert DB row to Gift object
+    }
+    return null;
   }
 }

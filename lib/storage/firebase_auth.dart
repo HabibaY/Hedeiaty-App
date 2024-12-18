@@ -59,9 +59,30 @@ class FirebaseAuthService {
 
   void listenForPledgedGifts(String userId) async {
     try {
-      print("Fetching events for userId: $userId");
+      print("Fetching notificationsEnabled setting for userId: $userId");
 
-      // Step 1: Fetch user's events with their Firestore eId
+      // Step 1: Check if notifications are enabled for the user
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      if (!userDoc.exists) {
+        print("User document does not exist for userId: $userId");
+        return;
+      }
+
+      final notificationsEnabled =
+          userDoc.data()?['notificationsEnabled'] ?? false;
+
+      print("notificationsEnabled: $notificationsEnabled");
+
+      if (!notificationsEnabled) {
+        print("Notifications are disabled for userId: $userId");
+        return; // Exit early if notifications are disabled
+      }
+
+      // Step 2: Fetch user's events
       final eventsSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -75,25 +96,10 @@ class FirebaseAuthService {
         return;
       }
 
-      // Step 2: For each event, set up a listener on its 'gifts' collection
+      // Step 3: Listen for gift status changes (pledged/cancelled)
       for (var eventDoc in eventsSnapshot.docs) {
-        final eId = eventDoc.id; // Firestore eId for the event
+        final eId = eventDoc.id;
         print("Setting up listener for gifts under event: $eId");
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('events')
-            .doc(eId)
-            .collection('gifts')
-            .snapshots()
-            .listen((snapshot) {
-          print("Raw snapshot data for event $eId: ${snapshot.docs}");
-
-          for (var doc in snapshot.docs) {
-            final giftData = doc.data();
-            print("Gift Data: $giftData");
-          }
-        });
 
         FirebaseFirestore.instance
             .collection('users')
@@ -101,24 +107,32 @@ class FirebaseAuthService {
             .collection('events')
             .doc(eId)
             .collection('gifts')
-            .where('status', isEqualTo: true) // Match boolean true
             .snapshots()
             .listen((snapshot) async {
-          print(
-              "Received ${snapshot.docs.length} pledged gifts for event: $eId");
-
           for (var docChange in snapshot.docChanges) {
-            if (docChange.type == DocumentChangeType.added) {
-              final giftData = docChange.doc.data() as Map<String, dynamic>?;
-              if (giftData != null) {
-                print("Pledged gift found: ${giftData['name']}");
+            final giftData = docChange.doc.data() as Map<String, dynamic>?;
 
-                // Show notification for the pledged gift
-                await NotificationHelper.showGiftNotification({
-                  'name': giftData['name'] ?? 'Unnamed Gift',
-                  'friend_name': giftData['friend_name'] ?? 'A friend',
-                });
-              }
+            if (giftData == null) continue;
+
+            // Check for newly pledged gifts
+            if (docChange.type == DocumentChangeType.added &&
+                giftData['status'] == true) {
+              print("Pledged gift found: ${giftData['name']}");
+              await NotificationHelper.showGiftNotification({
+                'name': giftData['name'] ?? 'Unnamed Gift',
+                'friend_name': giftData['friend_name'] ?? 'A friend',
+              });
+            }
+
+            // Check for cancelled pledges
+            if ((docChange.type == DocumentChangeType.modified &&
+                    giftData['status'] == false) ||
+                docChange.type == DocumentChangeType.removed) {
+              print("Pledge cancelled for gift: ${giftData['name']}");
+              await NotificationHelper.showPledgeCancelledNotification({
+                'name': giftData['name'] ?? 'Unnamed Gift',
+                'friend_name': giftData['friend_name'] ?? 'A friend',
+              });
             }
           }
         });

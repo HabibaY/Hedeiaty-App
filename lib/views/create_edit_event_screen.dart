@@ -28,6 +28,7 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
   late TextEditingController _descriptionController;
   String? _category;
   final EventController _eventController = EventController();
+  bool _isPledged = false; // Flag to prevent editing
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
         _descriptionController.text = event.description;
         _dateController.text = event.date;
         _category = event.category;
+        _isPledged = event.isPublished; // Mark event as pledged
         // `eId` is used internally; no UI interaction is necessary.
       });
     }
@@ -133,35 +135,59 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
         child: Form(
           child: SingleChildScrollView(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Warning Banner for Pledged Events
+                if (_isPledged)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16.0),
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: const Text(
+                      "This event is published and cannot be edited.",
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: "Event Name"),
+                  enabled: !_isPledged,
                 ),
                 TextFormField(
                   controller: _dateController,
                   decoration: const InputDecoration(labelText: "Date"),
-                  onTap: () async {
-                    FocusScope.of(context).requestFocus(FocusNode());
-                    DateTime? pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: widget.initialDate ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (pickedDate != null) {
-                      _dateController.text =
-                          DateFormat('yyyy-MM-dd').format(pickedDate);
-                    }
-                  },
+                  onTap: !_isPledged
+                      ? () async {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                          DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: widget.initialDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (pickedDate != null) {
+                            _dateController.text =
+                                DateFormat('yyyy-MM-dd').format(pickedDate);
+                          }
+                        }
+                      : null,
+                  readOnly: true,
                 ),
                 TextFormField(
                   controller: _locationController,
                   decoration: const InputDecoration(labelText: "Location"),
+                  enabled: !_isPledged,
                 ),
                 TextFormField(
                   controller: _descriptionController,
                   decoration: const InputDecoration(labelText: "Description"),
+                  enabled: !_isPledged,
                 ),
                 DropdownButtonFormField(
                   value: _category,
@@ -176,17 +202,20 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
                     DropdownMenuItem(value: "Holiday", child: Text("Holiday")),
                   ],
                   decoration: const InputDecoration(labelText: "Category"),
-                  onChanged: (value) {
-                    setState(() {
-                      _category = value as String;
-                    });
-                  },
+                  onChanged: !_isPledged
+                      ? (value) {
+                          setState(() {
+                            _category = value as String;
+                          });
+                        }
+                      : null,
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _saveEvent,
-                  style:
-                      ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+                  onPressed: !_isPledged ? _saveEvent : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isPledged ? Colors.grey : Colors.purple,
+                  ),
                   child: const Text(
                     "Save Event",
                     style: TextStyle(fontSize: 16, color: Colors.white),

@@ -16,7 +16,8 @@ class GiftController {
     required double price,
     required bool status,
     required String dueDate,
-    String? gId, // Optional Firestore ID
+    String? imagePath,
+    String? gId,
     required int eventId,
   }) async {
     final gift = Gift(
@@ -26,15 +27,33 @@ class GiftController {
       price: price,
       status: status,
       dueDate: dueDate,
-      gId: gId, // Pass Firestore ID or null
+      imagePath: imagePath,
+      gId: gId,
       eventId: eventId,
     );
-    await _localStorageService.insertGift(gift.toMap());
+
+    // Insert into local DB
+    final giftId = await _localStorageService.insertGift(gift.toMap());
+
+    print("Inserted Gift ID: $giftId");
+
+    // Debugging: Check returned ID
+    if (giftId != 0) {
+      print("Gift inserted successfully: ID=$giftId, Name=$name");
+    } else {
+      print("Failed to insert gift into local DB.");
+    }
   }
 
   Future<List<Gift>> getGifts() async {
     final giftsMap = await _localStorageService.getGifts();
-    return giftsMap.map((map) => Gift.fromMap(map)).toList();
+    print("Fetched gifts from local DB: $giftsMap"); // Debug print
+
+    return giftsMap.map((map) {
+      final gift = Gift.fromMap(map);
+      print("Parsed Gift: ID=${gift.id}, Name=${gift.name}"); // Debug print
+      return gift;
+    }).toList();
   }
 
   Future<List<Gift>> getGiftsForEvent(int eventId) async {
@@ -42,47 +61,134 @@ class GiftController {
     return giftsMap.map((map) => Gift.fromMap(map)).toList();
   }
 
-  Future<Gift?> getGiftById(int giftId) async {
-    final giftsMap = await _localStorageService.getGiftById(giftId);
-    if (giftsMap != null) {
-      return Gift.fromMap(giftsMap);
+  Future<Gift?> getGiftById(int id) async {
+    print("Querying local DB for Gift with ID: $id");
+    final db = await _localStorageService.database;
+    final result = await db.query(
+      'gifts',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (result.isNotEmpty) {
+      print("Gift found: ${result.first}");
+      return Gift.fromMap(result.first);
     }
+    print("No gift found for ID: $id");
     return null;
   }
 
-  Future<void> updateGift(Gift updatedGift) async {
-    await _localStorageService.updateGift(updatedGift.toMap());
+  Future<void> updateGift(Gift gift) async {
+    final db = await _localStorageService.database;
+
+    if (gift.id == null) {
+      print("Error: Gift ID is null, cannot update locally.");
+      return;
+    }
+
+    // Step 1: Update the local database
+    final rowsAffected = await db.update(
+      'gifts',
+      gift.toMap(),
+      where: 'id = ?',
+      whereArgs: [gift.id],
+    );
+
+    if (rowsAffected > 0) {
+      print("Gift updated locally: ID=${gift.id}");
+
+      // Step 2: If Firestore ID exists, update Firestore
+      if (gift.gId != null) {
+        final userId = await _eventController.getUserIdForEvent(gift.eventId);
+        final eid = await _eventController.getEventEid(gift.eventId);
+        if (userId != null) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('events')
+                .doc(eid)
+                .collection('gifts')
+                .doc(gift.gId)
+                .update({
+              'giftId': gift.id,
+              'imagePath': gift.imagePath,
+              'dueDate': gift.dueDate,
+              'name': gift.name,
+              'description': gift.description,
+              'category': gift.category,
+              'price': gift.price,
+              'status': gift.status,
+            });
+            print("Gift updated successfully in Firestore: gId=${gift.gId}");
+          } catch (e) {
+            print("Error updating gift in Firestore: $e");
+          }
+          print("Gift updated in Firestore: gId=${gift.gId}");
+        } else {
+          print("Error: User ID not found for event ID: ${gift.eventId}");
+        }
+      }
+    } else {
+      print("gId is null. Updating gift locally only...");
+
+      // Create a new Gift object for local update
+      final updatedGift = Gift(
+        id: gift.id, // Local ID
+        name: gift.name,
+        description: gift.description,
+        category: gift.category,
+        price: gift.price,
+        status: gift.status,
+        dueDate: gift.dueDate,
+        imagePath: gift.imagePath,
+        gId: null, // Ensure gId remains null
+        eventId: gift.eventId,
+      );
+
+      // Update the gift locally using the storage service
+      await _localStorageService.updateGift(updatedGift.toMap());
+      print("Gift updated locally with gId = null: ID=${updatedGift.id}");
+      return;
+    }
   }
 
   Future<void> updateGiftFirestore(Gift gift) async {
     final db = await LocalStorageService().database;
 
-    // Check if the gift exists in the local database
+    // Check if the gift already exists in the local database by Firestore ID (gId)
     final existingGift = await db.query(
       'gifts',
-      where: 'gId = ?', // Match using gId (Firestore document ID)
+      where: 'gId = ?', // Match using gId
       whereArgs: [gift.gId],
     );
 
     if (existingGift.isNotEmpty) {
-      // Update the existing record
+      // If gift exists, update it
+      final localGiftId = existingGift.first['id'];
+      print("Gift exists. Updating ID: $localGiftId");
+
       await db.update(
         'gifts',
         {
+          'id': localGiftId, // Retain the local DB ID
           'name': gift.name,
           'description': gift.description,
           'category': gift.category,
           'price': gift.price,
           'status': gift.status ? 1 : 0,
           'dueDate': gift.dueDate,
+          'imagePath': gift.imagePath,
           'gId': gift.gId,
         },
-        where: 'gId = ?', // Match using Firestore ID
-        whereArgs: [gift.gId],
+        where: 'id = ?',
+        whereArgs: [localGiftId],
       );
+
       print("Gift updated in DB: ${gift.name}");
     } else {
-      // Insert new record if it doesn't exist
+      // If gift does not exist, insert it
+      print("Inserting new gift into DB: ${gift.name}");
       await db.insert(
         'gifts',
         {
@@ -92,6 +198,7 @@ class GiftController {
           'price': gift.price,
           'status': gift.status ? 1 : 0,
           'dueDate': gift.dueDate,
+          'imagePath': gift.imagePath,
           'gId': gift.gId,
           'eventId': gift.eventId,
         },
@@ -100,48 +207,56 @@ class GiftController {
     }
   }
 
+  Future<String?> getFirestoreId(int localGiftId) async {
+    final gift = await _localStorageService.getGiftById(localGiftId);
+    return gift?['gId'];
+  }
+
   Future<void> deleteGift(int giftId) async {
-    final gift = await getGiftById(giftId); // Retrieve gift details to get gId
+    final gift = await getGiftById(giftId);
 
     if (gift == null) {
       print("Gift not found in the local database.");
       return;
     }
 
-    if (gift.status) {
-      // Check if gift is pledged (status == true)
-      print("Cannot delete pledged gift: ${gift.gId}");
-      return;
-    }
-
     try {
-      // Step 1: Find Firestore event document ID
-      final eventQuerySnapshot = await FirebaseFirestore.instance
-          .collection('events')
-          .where('eventId', isEqualTo: gift.eventId)
-          .get();
+      if (gift.gId != null) {
+        // Step 1: Fetch userId for the event
+        final userId = await _eventController.getUserIdForEvent(gift.eventId);
+        if (userId != null) {
+          print(
+              "Deleting gift from Firestore: users/$userId/events/${gift.eventId}/gifts/${gift.gId}");
 
-      if (eventQuerySnapshot.docs.isEmpty) {
-        print("No Firestore event document found for eventId: ${gift.eventId}");
-      } else if (gift.gId != null) {
-        // Step 2: Delete gift from Firestore
-        final eventDocId = eventQuerySnapshot.docs.first.id;
+          // Delete the gift document from Firestore
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('events')
+              .doc(gift.eventId.toString())
+              .collection('gifts')
+              .doc(gift.gId)
+              .delete();
 
-        await FirebaseFirestore.instance
-            .collection('events')
-            .doc(eventDocId)
-            .collection('gifts')
-            .doc(gift.gId)
-            .delete();
-
-        print('Gift deleted from Firestore: ${gift.gId}');
+          print("Gift deleted from Firestore: ${gift.gId}");
+        } else {
+          print("Error: User ID not found for event ID: ${gift.eventId}");
+        }
+      } else {
+        if (gift.status) {
+          // Check if gift is pledged (status == true)
+          print("Cannot delete pledged gift: ${gift.gId}");
+          return;
+        }
+        await _localStorageService.deleteGift(giftId);
+        print('Gift deleted locally: $giftId');
       }
 
-      // Step 3: Delete gift from local database
-      await _localStorageService.deleteGift(giftId);
-      print('Gift deleted locally: $giftId');
+      // Step 2: Delete the gift from the local database
+      await _localStorageService.deleteGift(gift.id!);
+      print("Gift deleted locally: ${gift.id}");
     } catch (e) {
-      print('Error deleting gift: $e');
+      print("Error deleting gift: $e");
     }
   }
 
@@ -156,6 +271,7 @@ class GiftController {
         price: gift.price,
         status: gift.status,
         dueDate: gift.dueDate,
+        imagePath: gift.imagePath,
         gId: gId, // Update Firestore ID
         eventId: gift.eventId,
       );
@@ -181,7 +297,7 @@ class GiftController {
     }
   }
 
-  /// Sync Firestore gifts with local DB
+  // /// Sync Firestore gifts with local DB
   Stream<List<Gift>> fetchFirestoreGifts(int eventId) async* {
     try {
       // Step 1: Get Firestore Event Document ID
@@ -220,23 +336,30 @@ class GiftController {
         });
 
         // Step 3: Parse Firestore Gifts
-        final firestoreGifts = snapshot.docs.map((doc) {
+        final firestoreGifts = await Future.wait(snapshot.docs.map((doc) async {
           final data = doc.data();
 
-          return Gift(
-            id: null,
-            gId: doc.id,
+          // Check local database for existing record with matching Firestore gId
+          final localGift = await _localStorageService.getGiftByGId(doc.id);
+
+          // Parse gift with local ID if available
+          final gift = Gift(
+            id: localGift?.id, // Use the local DB ID if it exists
+            gId: doc.id, // Firestore document ID
             name: data['name'] ?? '',
             description: data['description'] ?? '',
             category: data['category'] ?? '',
             price: (data['price'] is num) ? data['price'].toDouble() : 0.0,
-            status: (data['status'] is bool)
-                ? data['status']
-                : (data['status'] == true || data['status'] == "true"),
-            dueDate: data['duedate'] ?? '',
+            status: (data['status'] is bool) ? data['status'] : false,
+            dueDate: data['dueDate'] ?? '',
+            imagePath: data['imagePath'],
             eventId: eventId,
           );
-        }).toList();
+
+          print(
+              "Parsed Gift: Local ID=${gift.id}, Firestore gId=${gift.gId}, Name=${gift.name}");
+          return gift;
+        }).toList());
 
         // Step 4: Update Local Database
         print("Updating Local DB with Firestore Data...");
@@ -272,6 +395,117 @@ class GiftController {
     }
   }
 
+  /// Sync Firestore gifts with local DB
+  // Stream<List<Gift>> fetchFirestoreGifts(int eventId) async* {
+  //   try {
+  //     String? userId = await _eventController.getUserIdForEvent(eventId);
+  //     String? eId = await _eventController.getEventEid(eventId);
+
+  //     // If userId is not found locally, fetch from Firestore
+  //     if (userId == null) {
+  //       print(
+  //           "Local userId not found for eventId: $eventId. Fetching from Firestore...");
+  //       userId = await _fetchUserIdFromFirestore(eventId);
+  //       if (userId == null) {
+  //         print("No userId found in Firestore. Cannot fetch gifts.");
+  //         yield [];
+  //         return;
+  //       }
+  //     }
+
+  //     // If eId is not found locally, fetch event IDs from Firestore
+  //     if (eId == null) {
+  //       print(
+  //           "Local eId not found for eventId: $eventId. Fetching eventIds from Firestore...");
+  //       final firestoreEventIds = await _fetchEventIdsForUser(userId);
+  //       if (firestoreEventIds.isEmpty) {
+  //         print("No events found in Firestore for userId: $userId");
+  //         yield [];
+  //         return;
+  //       }
+
+  //       // Use the first event ID (or adjust based on your use case)
+  //       eId = firestoreEventIds.first;
+  //     }
+
+  //     print("Querying Firestore path: users/$userId/events/$eId/gifts");
+
+  //     // Fetch gifts from Firestore
+  //     yield* FirebaseFirestore.instance
+  //         .collection("users")
+  //         .doc(userId)
+  //         .collection('events')
+  //         .doc(eId)
+  //         .collection('gifts')
+  //         .snapshots()
+  //         .asyncMap((snapshot) async {
+  //       print("Received snapshot with ${snapshot.docs.length} documents.");
+
+  //       final firestoreGifts = snapshot.docs.map((doc) {
+  //         final data = doc.data();
+  //         return Gift(
+  //           id: null,
+  //           gId: doc.id,
+  //           name: data['name'] ?? '',
+  //           description: data['description'] ?? '',
+  //           category: data['category'] ?? '',
+  //           price: (data['price'] is num) ? data['price'].toDouble() : 0.0,
+  //           status: (data['status'] is bool) ? data['status'] : false,
+  //           dueDate: data['duedate'] ?? '',
+  //           eventId: eventId,
+  //         );
+  //       }).toList();
+
+  //       print("Gifts fetched from Firestore: ${firestoreGifts.length}");
+  //       return firestoreGifts;
+  //     });
+  //   } catch (e) {
+  //     print("Error fetching Firestore gifts: $e");
+  //     yield [];
+  //   }
+  // }
+
+// Helper method to fetch userId from Firestore
+  Future<String?> _fetchUserIdFromFirestore(int eventId) async {
+    try {
+      final usersSnapshot =
+          await FirebaseFirestore.instance.collection('users').get();
+
+      for (var userDoc in usersSnapshot.docs) {
+        final eventsSnapshot = await userDoc.reference
+            .collection('events')
+            .where('id', isEqualTo: eventId)
+            .get();
+
+        if (eventsSnapshot.docs.isNotEmpty) {
+          print(
+              "Found userId in Firestore: ${userDoc.id} for eventId: $eventId");
+          return userDoc.id;
+        }
+      }
+      return null;
+    } catch (e) {
+      print("Error fetching userId from Firestore: $e");
+      return null;
+    }
+  }
+
+// Helper method to fetch all eventIds for a user from Firestore
+  Future<List<String>> _fetchEventIdsForUser(String userId) async {
+    try {
+      final eventsSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('events')
+          .get();
+
+      return eventsSnapshot.docs.map((doc) => doc.id).toList();
+    } catch (e) {
+      print("Error fetching eventIds for userId: $userId - $e");
+      return [];
+    }
+  }
+
   Future<void> syncGiftsWithFirestore(
       int eventId, List<Gift> firestoreGifts) async {
     try {
@@ -291,6 +525,7 @@ class GiftController {
             price: 0.0,
             status: false,
             dueDate: '',
+            imagePath: '',
             eventId: firestoreGift.eventId,
           ),
         );
@@ -367,4 +602,41 @@ class GiftController {
   //     yield [];
   //   }
   // }
+  Future<Gift?> getGiftByFirestoreId(int eventId, int localGiftId) async {
+    try {
+      final userId = await _eventController.getUserIdForEvent(eventId);
+      final eId = await _eventController.getEventEid(eventId);
+
+      if (userId != null && eId != null) {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('events')
+            .doc(eId)
+            .collection('gifts')
+            .get();
+
+        for (var doc in snapshot.docs) {
+          if (doc.data()['id'] == localGiftId) {
+            final data = doc.data();
+            return Gift(
+              id: localGiftId,
+              gId: doc.id,
+              name: data['name'] ?? '',
+              description: data['description'] ?? '',
+              category: data['category'] ?? '',
+              price: (data['price'] is num) ? data['price'].toDouble() : 0.0,
+              status: data['status'] ?? false,
+              dueDate: data['dueDate'] ?? '',
+              imagePath: data['imagePath'],
+              eventId: eventId,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print("Error fetching gift by Firestore ID: $e");
+    }
+    return null;
+  }
 }
