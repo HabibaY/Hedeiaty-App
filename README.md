@@ -73,25 +73,25 @@ gift-management-app/
     ├── profile_page_screen.dart
     ├── event_list_screen.dart 
     ├── event_details_screen.dart 
-    ├── gift_list_screen.dart  # Displays gifts for a specific event
-    ├── pledged_gifts_screen.dart # Displays gifts pledged by the user
-    ├── create_edit_event_screen.dart # Screen to create or edit events
-    ├── create_edit_gift_screen.dart # Screen to create or edit gifts
-├── models/                   # Data models for the application
-   ├── user.dart             # Defines the User model
-   ├── event.dart            # Defines the Event model
-   ├── gift.dart             # Defines the Gift model
-├── controllers/              # Business logic and interaction with data
-   ├── user_controller.dart  # Handles user-related operations
-   ├── event_controller.dart # Handles event-related operations
-   ├── gift_controller.dart  # Handles gift-related operations
-├── services/                 # Utility and helper services
-   ├── firebase_auth.dart    # Manages user authentication
-   ├── local_storage_service.dart # Manages SQLite database operations
-   ├── notification_service.dart # Handles local notifications
-├── providers/                # State management providers
-   ├── user_provider.dart    # Manages user state
-   ├── event_provider.dart   # Manages event state
+    ├── gift_list_screen.dart 
+    ├── pledged_gifts_screen.dart 
+    ├── create_edit_event_screen.dart 
+    ├── create_edit_gift_screen.dart 
+├── models/                  
+   ├── user.dart            
+   ├── event.dart            
+   ├── gift.dart             
+├── controllers/              
+   ├── user_controller.dart 
+   ├── event_controller.dart 
+   ├── gift_controller.dart  
+├── services/              
+   ├── firebase_auth.dart   
+   ├── local_storage_service.dart 
+   ├── notification_service.dart
+├── providers/               
+   ├── user_provider.dart    
+   ├── event_provider.dart  
 
 test/
 ├── controllers/               # Unit tests for individual components
