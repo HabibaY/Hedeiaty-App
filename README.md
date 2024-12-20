@@ -64,49 +64,49 @@ gift-management-app/
   - `models/`: Includes models for User, Event, and Gift.
   - `controllers/`: Handles interactions between UI and data storage (e.g., `event_controller.dart`, `gift_controller.dart`).
   - `services/`: Contains helper classes for local storage and notifications (e.g., `local_storage_service.dart`, `notification_service.dart`).
-lib/
-├── main.dart                 # Entry point of the application
-├── screens/                  # All UI screens of the application
-│   ├── home_screen.dart      # Central dashboard screen
-│   ├── sign_in_screen.dart   # User login screen
-│   ├── sign_up_screen.dart   # User registration screen
-│   ├── profile_page_screen.dart # User profile management
-│   ├── event_list_screen.dart # Displays a list of events
-│   ├── event_details_screen.dart # Detailed view of a specific event
-│   ├── gift_list_screen.dart  # Displays gifts for a specific event
-│   ├── pledged_gifts_screen.dart # Displays gifts pledged by the user
-│   ├── create_edit_event_screen.dart # Screen to create or edit events
-│   ├── create_edit_gift_screen.dart # Screen to create or edit gifts
+- **lib/**:
+├── main.dart                 
+├── screens/                  
+    ├── home_screen.dart      
+    ├── sign_in_screen.dart  
+    ├── sign_up_screen.dart   
+    ├── profile_page_screen.dart
+    ├── event_list_screen.dart 
+    ├── event_details_screen.dart 
+    ├── gift_list_screen.dart  # Displays gifts for a specific event
+    ├── pledged_gifts_screen.dart # Displays gifts pledged by the user
+    ├── create_edit_event_screen.dart # Screen to create or edit events
+    ├── create_edit_gift_screen.dart # Screen to create or edit gifts
 ├── models/                   # Data models for the application
-│   ├── user.dart             # Defines the User model
-│   ├── event.dart            # Defines the Event model
-│   ├── gift.dart             # Defines the Gift model
+   ├── user.dart             # Defines the User model
+   ├── event.dart            # Defines the Event model
+   ├── gift.dart             # Defines the Gift model
 ├── controllers/              # Business logic and interaction with data
-│   ├── user_controller.dart  # Handles user-related operations
-│   ├── event_controller.dart # Handles event-related operations
-│   ├── gift_controller.dart  # Handles gift-related operations
+   ├── user_controller.dart  # Handles user-related operations
+   ├── event_controller.dart # Handles event-related operations
+   ├── gift_controller.dart  # Handles gift-related operations
 ├── services/                 # Utility and helper services
-│   ├── firebase_auth.dart    # Manages user authentication
-│   ├── local_storage_service.dart # Manages SQLite database operations
-│   ├── notification_service.dart # Handles local notifications
+   ├── firebase_auth.dart    # Manages user authentication
+   ├── local_storage_service.dart # Manages SQLite database operations
+   ├── notification_service.dart # Handles local notifications
 ├── providers/                # State management providers
-│   ├── user_provider.dart    # Manages user state
-│   ├── event_provider.dart   # Manages event state
+   ├── user_provider.dart    # Manages user state
+   ├── event_provider.dart   # Manages event state
 
 test/
 ├── controllers/               # Unit tests for individual components
-│   ├── user_controller_test.dart  # Tests for UserController
-│   ├── event_controller_test.dart # Tests for EventController
-│   ├── gift_controller_test.dart  # Tests for GiftController
+   ├── user_controller_test.dart  # Tests for UserController
+   ├── event_controller_test.dart # Tests for EventController
+   ├── gift_controller_test.dart  # Tests for GiftController
 ├── integration_tests/       
-│   ├── login_test.dart
-│   ├── scenario1.dart   
+   ├── login_test.dart
+   ├── scenario1.dart   
 ├── models/            
-│   ├── event_test.dart       
-│   ├── gift_test.dart 
-│   ├── user_test.dart   
+   ├── event_test.dart       
+   ├── gift_test.dart 
+   ├── user_test.dart   
 ├── DB/            
-│   ├── db_test.dart    
+   ├── db_test.dart    
 
 
  
