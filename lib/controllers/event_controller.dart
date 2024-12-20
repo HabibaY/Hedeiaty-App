@@ -7,6 +7,8 @@ import '../controllers/gift_controller.dart';
 class EventController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final LocalStorageService _localStorageService = LocalStorageService();
+  // EventController([FirebaseFirestore? firestoreInstance])
+  //     : _firestore = firestoreInstance ?? FirebaseFirestore.instance;
 
   /// Add a new event
   /// Add a new event
@@ -346,6 +348,16 @@ class EventController {
     } catch (e) {
       print('Error publishing events and gifts: $e');
       rethrow;
+    }
+  }
+
+  Future<List<Event>> getEventsByUserId(String userId) async {
+    try {
+      final eventsMap = await _localStorageService.getEventsForUser(userId);
+      return eventsMap.map((map) => Event.fromMap(map)).toList();
+    } catch (e) {
+      print("Error fetching events for userId: $e");
+      return [];
     }
   }
 

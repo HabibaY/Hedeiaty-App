@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:collection/collection.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart'; // Import UserProvider
 import '../storage/firebase_auth.dart'; // Import FirebaseAuthService
 import '../controllers/user_controller.dart'; // Import UserController
+import '../controllers/event_controller.dart';
+import '../controllers/gift_controller.dart';
+import '../models/event.dart';
+import '../models/gift.dart';
+import 'dart:convert';
+import 'dart:io';
 
 class ProfilePageScreen extends StatefulWidget {
   const ProfilePageScreen({super.key});
@@ -13,6 +20,8 @@ class ProfilePageScreen extends StatefulWidget {
 }
 
 class _ProfilePageScreenState extends State<ProfilePageScreen> {
+  final EventController _eventController = EventController();
+  final GiftController _giftController = GiftController();
   final FirebaseAuthService _authService = FirebaseAuthService();
   bool receiveGiftPledgeNotifications = true;
   String userName = "User Name"; // Default user name
@@ -20,33 +29,83 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
   String userPhoneNumber = ""; // Default phone number
   String profileImagePath =
       'assets/default_avatar.png'; // Default profile image
+  List<Event> events = [];
+  Map<int, List<Gift>> eventGifts = {}; // Maps eventId to list of gifts
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadEventsAndGifts();
   }
 
+  // Future<void> _loadUserData() async {
+  //   try {
+  //     final userId = Provider.of<UserProvider>(context, listen: false).userId;
+  //     if (userId != null) {
+  //       final userDoc = await FirebaseFirestore.instance
+  //           .collection('users')
+  //           .doc(userId)
+  //           .get();
+
+  //       if (userDoc.exists) {
+  //         setState(() {
+  //           userName = userDoc['name'] ?? "User Name";
+  //           userEmail = userDoc['email'] ?? ""; // Fetch user email
+  //           userPhoneNumber =
+  //               userDoc['phoneNumber'] ?? ""; // Fetch phone number
+  //           profileImagePath =
+  //               userDoc['profileImagePath'] ?? 'assets/default_avatar.png';
+  //           receiveGiftPledgeNotifications =
+  //               userDoc['notificationsEnabled'] ?? true;
+  //         });
+  //       }
+  //     }
+  //   } catch (e) {
+  //     print("Error loading user data: $e");
+  //   }
+  // }
   Future<void> _loadUserData() async {
     try {
       final userId = Provider.of<UserProvider>(context, listen: false).userId;
-      if (userId != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get();
 
-        if (userDoc.exists) {
+      if (userId != null) {
+        final userController = UserController();
+
+        // Fetch user details from local storage
+        final users = await userController.getUsers();
+
+        final user = users.firstWhereOrNull((u) => u.uid == userId);
+
+        if (user != null) {
           setState(() {
-            userName = userDoc['name'] ?? "User Name";
-            userEmail = userDoc['email'] ?? ""; // Fetch user email
-            userPhoneNumber =
-                userDoc['phoneNumber'] ?? ""; // Fetch phone number
+            userName = user.name ?? "User Name";
+            userEmail = user.email ?? "";
+            userPhoneNumber = user.phoneNumber ?? "";
             profileImagePath =
-                userDoc['profileImagePath'] ?? 'assets/default_avatar.png';
-            receiveGiftPledgeNotifications =
-                userDoc['notificationsEnabled'] ?? true;
+                user.profileImagePath ?? 'assets/default_avatar.png';
+            receiveGiftPledgeNotifications = user.notificationsEnabled ?? true;
+            print('fetched locally');
           });
+        } else {
+          print("No user data found locally. Falling back to Firestore...");
+          // Fallback to Firestore if local data is missing
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .get();
+
+          if (userDoc.exists) {
+            setState(() {
+              userName = userDoc['name'] ?? "User Name";
+              userEmail = userDoc['email'] ?? "";
+              userPhoneNumber = userDoc['phoneNumber'] ?? "";
+              profileImagePath =
+                  userDoc['profileImagePath'] ?? 'assets/default_avatar.png';
+              receiveGiftPledgeNotifications =
+                  userDoc['notificationsEnabled'] ?? true;
+            });
+          }
         }
       }
     } catch (e) {
@@ -158,6 +217,26 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
         );
       },
     );
+  }
+
+  Future<void> _loadEventsAndGifts() async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+
+    if (userId != null) {
+      // Fetch events
+      final fetchedEvents = await _eventController.getEventsByUserId(userId);
+      setState(() {
+        events = fetchedEvents;
+      });
+
+      // Fetch gifts for each event
+      for (var event in fetchedEvents) {
+        final gifts = await _giftController.getGiftsForEvent(event.id!);
+        setState(() {
+          eventGifts[event.id!] = gifts;
+        });
+      }
+    }
   }
 
   Future<void> _editProfilePicture() async {
@@ -291,47 +370,49 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Top section for Profile Picture and Background
-          Container(
-            height: MediaQuery.of(context).size.height * 0.35,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.purple[300],
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(40),
-                bottomRight: Radius.circular(40),
+      body: SingleChildScrollView(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Top Profile Section
+        Stack(
+          children: [
+            Container(
+              height: 250, // Uniform height for purple header
+              decoration: BoxDecoration(
+                color: Colors.purple[300],
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(40),
+                  bottomRight: Radius.circular(40),
+                ),
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Column(
               children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundImage: AssetImage(profileImagePath),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.edit,
-                            color: Colors.purple,
+                const SizedBox(height: 60), // Spacing for the profile picture
+                Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundImage: AssetImage(profileImagePath),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
                           ),
-                          onPressed: _editProfilePicture,
+                          child: IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.purple),
+                            onPressed: _editProfilePicture,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -344,67 +425,189 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
                 ),
               ],
             ),
-          ),
-          // Settings Section
-          Padding(
-            padding: const EdgeInsets.only(top: 250.0),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
+          ],
+        ),
+
+        // Main Content Section
+        Transform.translate(
+          offset: Offset(0, -20), // Move container up visually
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.person, color: Colors.purple),
-                      title: const Text("Edit Personal Information"),
-                      onTap: _editPersonalInformation,
-                    ),
-                    ListTile(
-                      leading:
-                          const Icon(Icons.notifications, color: Colors.purple),
-                      title: const Text("Receive Gift Pledge Notifications"),
-                      trailing: Switch(
-                        value: receiveGiftPledgeNotifications,
-                        onChanged: (bool value) {
-                          _updateNotifications(value);
-                        },
-                        activeColor: Colors.purple,
-                      ),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.event, color: Colors.purple),
-                      title: const Text("My Events"),
-                      onTap: () {
-                        Navigator.pushNamed(context, '/eventList');
-                      },
-                    ),
-                    ListTile(
-                      leading:
-                          const Icon(Icons.card_giftcard, color: Colors.purple),
-                      title: const Text("My Pledged Gifts"),
-                      onTap: () {
-                        Navigator.pushNamed(context, '/pledgedGifts');
-                      },
-                    ),
-                    const Spacer(),
-                    ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text("Logout"),
-                      onTap: _logout,
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 6,
+                  offset: const Offset(0, -2),
                 ),
-              ),
+              ],
+            ),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.person, color: Colors.purple),
+                  title: const Text("Edit Personal Information"),
+                  onTap: _editPersonalInformation,
+                ),
+                ListTile(
+                  leading:
+                      const Icon(Icons.notifications, color: Colors.purple),
+                  title: const Text("Receive Gift Pledge Notifications"),
+                  trailing: Switch(
+                    value: receiveGiftPledgeNotifications,
+                    onChanged: (bool value) {
+                      _updateNotifications(value);
+                    },
+                    activeColor: Colors.purple,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Go to Event List
+                ListTile(
+                  leading: const Icon(Icons.event, color: Colors.purple),
+                  title: const Text(
+                    "Go to Event List",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/eventList');
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // // Event List Title
+                // const Align(
+                //   alignment: Alignment.centerLeft,
+                //   child: Padding(
+                //     padding: EdgeInsets.only(left: 8.0),
+                //     child: Text(
+                //       "Event List",
+                //       style: TextStyle(
+                //         fontSize: 20,
+                //         fontWeight: FontWeight.bold,
+                //         color: Colors.purple,
+                //       ),
+                //     ),
+                //   ),
+                // ),
+                // const SizedBox(height: 10),
+
+                // // Event List
+                // ListView.builder(
+                //   shrinkWrap: true,
+                //   physics: const NeverScrollableScrollPhysics(),
+                //   itemCount: events.length,
+                //   itemBuilder: (context, index) {
+                //     final event = events[index];
+                //     final gifts = eventGifts[event.id!] ?? [];
+
+                //     return Container(
+                //       margin: const EdgeInsets.only(bottom: 12.0),
+                //       padding: const EdgeInsets.all(10),
+                //       decoration: BoxDecoration(
+                //         color: Colors.purple[50],
+                //         borderRadius: BorderRadius.circular(12),
+                //         boxShadow: [
+                //           BoxShadow(
+                //             color: Colors.black12,
+                //             blurRadius: 4,
+                //             offset: const Offset(0, 2),
+                //           ),
+                //         ],
+                //       ),
+                //       child: ExpansionTile(
+                //         tilePadding:
+                //             const EdgeInsets.symmetric(horizontal: 12.0),
+                //         title: Text(
+                //           "${event.name} (${event.date})",
+                //           style: const TextStyle(
+                //             fontSize: 16,
+                //             fontWeight: FontWeight.bold,
+                //             color: Colors.purple,
+                //           ),
+                //         ),
+                //         children: gifts.isNotEmpty
+                //             ? gifts.map((gift) {
+                //                 return ListTile(
+                //                   leading: gift.imagePath != null
+                //                       ? ClipRRect(
+                //                           borderRadius:
+                //                               BorderRadius.circular(6),
+                //                           child: Image.memory(
+                //                             base64Decode(gift.imagePath!),
+                //                             width: 40,
+                //                             height: 40,
+                //                             fit: BoxFit.cover,
+                //                           ),
+                //                         )
+                //                       : const Icon(
+                //                           Icons.card_giftcard,
+                //                           color: Colors.grey,
+                //                           size: 40,
+                //                         ),
+                //                   title: Text(
+                //                     gift.name,
+                //                     style: const TextStyle(
+                //                       fontWeight: FontWeight.w500,
+                //                       fontSize: 14,
+                //                     ),
+                //                   ),
+                //                   subtitle: Text(
+                //                     "Price: \$${gift.price}",
+                //                     style: const TextStyle(fontSize: 12),
+                //                   ),
+                //                 );
+                //               }).toList()
+                //             : [
+                //                 const ListTile(
+                //                   title: Text(
+                //                     "No gifts found for this event.",
+                //                     style: TextStyle(
+                //                       color: Colors.grey,
+                //                       fontSize: 14,
+                //                     ),
+                //                   ),
+                //                 ),
+                //               ],
+                //       ),
+                //     );
+                //   },
+                // ),
+                const SizedBox(height: 10),
+
+                // My Pledged Gifts
+                ListTile(
+                  leading:
+                      const Icon(Icons.card_giftcard, color: Colors.purple),
+                  title: const Text("My Pledged Gifts"),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/pledgedGifts');
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Logout
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text("Logout"),
+                  onTap: _logout,
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ])),
+
       // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Colors.purple,

@@ -18,14 +18,21 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> signIn() async {
     try {
-      if (!RegExp(r"^[a-zA-Z0-9]+@[a-zA-Z]+\.[a-zA-Z]+")
+      // Validate email format
+      if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+        setState(() {
+          errorMessage = "All fields are required.";
+        });
+        return;
+      }
+
+      if (!RegExp(r"^[a-zA-Z0-9]+@[a-zA-Z]+\.[a-zA-Z]+$")
           .hasMatch(emailController.text)) {
         setState(() {
           errorMessage = "Invalid email format.";
         });
         return;
       }
-
       if (passwordController.text.isEmpty) {
         setState(() {
           errorMessage = "Password cannot be empty.";
@@ -33,18 +40,26 @@ class _SignInScreenState extends State<SignInScreen> {
         return;
       }
 
+      // Call the sign-in function from FirebaseAuthService
       final user = await _authService.signInWithEmailPassword(
-        email: emailController.text,
+        email: emailController.text.trim(),
         password: passwordController.text,
       );
 
       if (user != null) {
+        // Store user ID and navigate to the next screen
         Provider.of<UserProvider>(context, listen: false).setUserId(user.uid);
         Navigator.pushReplacementNamed(context, '/loading');
       }
-    } catch (e) {
+    } on Exception catch (e) {
+      // Display user-friendly error messages
       setState(() {
-        errorMessage = e.toString();
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    } catch (e) {
+      // Catch all other errors
+      setState(() {
+        errorMessage = "An unexpected error occurred. Please try again.";
       });
     }
   }

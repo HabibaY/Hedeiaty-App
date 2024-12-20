@@ -619,9 +619,24 @@ class _CreateEditGiftScreenState extends State<CreateEditGiftScreen> {
                 if (_compressedImageBase64 != null)
                   Padding(
                     padding: const EdgeInsets.all(10.0),
-                    child: Image.memory(
-                      base64Decode(_compressedImageBase64!),
-                      height: 150,
+                    child: Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        // Display the uploaded image
+                        Image.memory(
+                          base64Decode(_compressedImageBase64!),
+                          height: 150,
+                        ),
+                        // 'X' button to remove the image
+                        IconButton(
+                          icon: const Icon(Icons.cancel, color: Colors.white),
+                          onPressed: () {
+                            setState(() {
+                              _compressedImageBase64 = null; // Clear the image
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 const SizedBox(height: 20),

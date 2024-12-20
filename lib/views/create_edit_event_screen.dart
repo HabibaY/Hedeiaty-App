@@ -200,6 +200,7 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
                     DropdownMenuItem(
                         value: "Graduation", child: Text("Graduation")),
                     DropdownMenuItem(value: "Holiday", child: Text("Holiday")),
+                    DropdownMenuItem(value: "Other", child: Text("Other")),
                   ],
                   decoration: const InputDecoration(labelText: "Category"),
                   onChanged: !_isPledged

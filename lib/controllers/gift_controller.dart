@@ -57,8 +57,13 @@ class GiftController {
   }
 
   Future<List<Gift>> getGiftsForEvent(int eventId) async {
-    final giftsMap = await _localStorageService.getGiftsForEvent(eventId);
-    return giftsMap.map((map) => Gift.fromMap(map)).toList();
+    try {
+      final giftsMap = await _localStorageService.getGiftsForEvent(eventId);
+      return giftsMap.map((map) => Gift.fromMap(map)).toList();
+    } catch (e) {
+      print("Error fetching gifts for eventId: $e");
+      return [];
+    }
   }
 
   Future<Gift?> getGiftById(int id) async {

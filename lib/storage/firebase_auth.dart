@@ -34,8 +34,19 @@ class FirebaseAuthService {
         password: password,
       );
       return userCredential.user;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+          throw Exception('No user found with this email.');
+        case 'wrong-password':
+          throw Exception('Invalid password. Please try again.');
+        case 'invalid-email':
+          throw Exception('Invalid email format.');
+        default:
+          throw Exception('Invalid Email/Password');
+      }
     } catch (e) {
-      rethrow; // Pass the error to the caller
+      throw Exception('An unknown error occurred.');
     }
   }
 

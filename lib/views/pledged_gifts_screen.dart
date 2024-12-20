@@ -37,11 +37,19 @@ class _PledgedGiftsScreenState extends State<PledgedGiftsScreen> {
             List<String>.from(pledgedDoc.data()?['gIds'] ?? []);
 
         List<Map<String, dynamic>> fetchedGifts = [];
+        Map<String, String> userNameCache = {}; // Cache for user names
 
         // Iterate over all users -> events -> gifts
         final usersSnapshot = await _firestore.collection('users').get();
 
         for (var userDoc in usersSnapshot.docs) {
+          final userId = userDoc.id;
+
+          // Step 3: Fetch friend's name (only once per user ID)
+          final friendName = userNameCache.putIfAbsent(
+            userId,
+            () => userDoc.data()['name'] ?? 'Unknown Friend',
+          );
           final eventsSnapshot = await _firestore
               .collection('users')
               .doc(userDoc.id)
@@ -68,6 +76,7 @@ class _PledgedGiftsScreenState extends State<PledgedGiftsScreen> {
                   'dueDate': giftData['dueDate'] ?? '',
                   'status': giftData['status'] ?? false,
                   'reference': giftDoc.reference, // For updates
+                  'friendName': friendName, // Add fetched friend's name here
                 });
 
                 cancelPledgeStatus[giftDoc.id] = false; // Initially off
@@ -163,6 +172,13 @@ class _PledgedGiftsScreenState extends State<PledgedGiftsScreen> {
                     "Due Date: ${gift['dueDate']}",
                     style: const TextStyle(color: Colors.black54),
                   ),
+                  Text(
+                    // Add Friend's Name Here
+                    "To: ${gift['friendName']}",
+                    style: const TextStyle(
+                        color: Colors.deepPurpleAccent,
+                        fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
@@ -180,6 +196,32 @@ class _PledgedGiftsScreenState extends State<PledgedGiftsScreen> {
                   value: cancelPledgeStatus[gift['id']] ?? false,
                   activeColor: Colors.redAccent,
                   onChanged: (bool value) {
+                    final dueDate =
+                        gift['dueDate']; // Firestore due date (string)
+                    final parsedDueDate =
+                        DateTime.tryParse(dueDate); // Parse to DateTime
+
+                    if (parsedDueDate != null) {
+                      // Check today's date against (dueDate - 2 days)
+                      final twoDaysBeforeDueDate =
+                          parsedDueDate.subtract(const Duration(days: 2));
+                      final today = DateTime.now();
+
+                      if (today.isAfter(twoDaysBeforeDueDate) ||
+                          today.isAtSameMomentAs(twoDaysBeforeDueDate)) {
+                        // Show error and prevent cancellation
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "Cannot cancel pledge, must be 2 days before the due date (${dueDate}).",
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return; // Exit early
+                      }
+                    }
+
                     setState(() {
                       cancelPledgeStatus[gift['id']] = value;
                     });

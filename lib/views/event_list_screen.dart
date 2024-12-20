@@ -331,9 +331,20 @@ class _EventListScreenState extends State<EventListScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                color: Colors.purple[50],
+                // color: const Color.fromARGB(255, 227, 156, 238),
+                // child: ListTile(
+                //   title: Text(event.name),
+                color: event.isPublished
+                    ? const Color.fromARGB(113, 97, 234, 109)
+                    : Colors.purple[50],
                 child: ListTile(
-                  title: Text(event.name),
+                  title: Text(
+                    event.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
                   subtitle: Text("Date: ${event.date}"),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
