@@ -60,6 +60,7 @@ dependencies:
   flutter_driver:
     sdk: flutter
   sqflite_common_ffi: ^2.3.4+4
+  timezone: ^0.10.0
 
 dev_dependencies:
 

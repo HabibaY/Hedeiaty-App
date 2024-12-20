@@ -118,15 +118,27 @@ class _EventListScreenState extends State<EventListScreen> {
           IconButton(
             icon: const Icon(Icons.cloud_upload),
             onPressed: () async {
-              await _eventController.publishEventsAndGifts(widget.userId);
+              final isAlreadyPublished = await _eventController
+                  .areAllEventsAndGiftsPublished(widget.userId);
 
-              _fetchEvents(); // Refresh the event list after publishing
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Unpublished events successfully uploaded!"),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              if (isAlreadyPublished) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content:
+                        Text("All events and gifts are already published!"),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              } else {
+                await _eventController.publishEventsAndGifts(widget.userId);
+                _fetchEvents(); // Refresh the event list after publishing
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Unpublished events successfully uploaded!"),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
             },
           ),
         ],

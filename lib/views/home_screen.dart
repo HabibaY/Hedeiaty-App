@@ -560,7 +560,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // Create Event Button
               ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/createEvent');
+                  Navigator.pushNamed(context, '/eventList');
                 },
                 icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text(

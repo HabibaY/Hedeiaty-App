@@ -485,104 +485,104 @@ class _ProfilePageScreenState extends State<ProfilePageScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // // Event List Title
-                // const Align(
-                //   alignment: Alignment.centerLeft,
-                //   child: Padding(
-                //     padding: EdgeInsets.only(left: 8.0),
-                //     child: Text(
-                //       "Event List",
-                //       style: TextStyle(
-                //         fontSize: 20,
-                //         fontWeight: FontWeight.bold,
-                //         color: Colors.purple,
-                //       ),
-                //     ),
-                //   ),
-                // ),
-                // const SizedBox(height: 10),
+                // Event List Title
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 8.0),
+                    child: Text(
+                      "Event List",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purple,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
 
-                // // Event List
-                // ListView.builder(
-                //   shrinkWrap: true,
-                //   physics: const NeverScrollableScrollPhysics(),
-                //   itemCount: events.length,
-                //   itemBuilder: (context, index) {
-                //     final event = events[index];
-                //     final gifts = eventGifts[event.id!] ?? [];
+                // Event List
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: events.length,
+                  itemBuilder: (context, index) {
+                    final event = events[index];
+                    final gifts = eventGifts[event.id!] ?? [];
 
-                //     return Container(
-                //       margin: const EdgeInsets.only(bottom: 12.0),
-                //       padding: const EdgeInsets.all(10),
-                //       decoration: BoxDecoration(
-                //         color: Colors.purple[50],
-                //         borderRadius: BorderRadius.circular(12),
-                //         boxShadow: [
-                //           BoxShadow(
-                //             color: Colors.black12,
-                //             blurRadius: 4,
-                //             offset: const Offset(0, 2),
-                //           ),
-                //         ],
-                //       ),
-                //       child: ExpansionTile(
-                //         tilePadding:
-                //             const EdgeInsets.symmetric(horizontal: 12.0),
-                //         title: Text(
-                //           "${event.name} (${event.date})",
-                //           style: const TextStyle(
-                //             fontSize: 16,
-                //             fontWeight: FontWeight.bold,
-                //             color: Colors.purple,
-                //           ),
-                //         ),
-                //         children: gifts.isNotEmpty
-                //             ? gifts.map((gift) {
-                //                 return ListTile(
-                //                   leading: gift.imagePath != null
-                //                       ? ClipRRect(
-                //                           borderRadius:
-                //                               BorderRadius.circular(6),
-                //                           child: Image.memory(
-                //                             base64Decode(gift.imagePath!),
-                //                             width: 40,
-                //                             height: 40,
-                //                             fit: BoxFit.cover,
-                //                           ),
-                //                         )
-                //                       : const Icon(
-                //                           Icons.card_giftcard,
-                //                           color: Colors.grey,
-                //                           size: 40,
-                //                         ),
-                //                   title: Text(
-                //                     gift.name,
-                //                     style: const TextStyle(
-                //                       fontWeight: FontWeight.w500,
-                //                       fontSize: 14,
-                //                     ),
-                //                   ),
-                //                   subtitle: Text(
-                //                     "Price: \$${gift.price}",
-                //                     style: const TextStyle(fontSize: 12),
-                //                   ),
-                //                 );
-                //               }).toList()
-                //             : [
-                //                 const ListTile(
-                //                   title: Text(
-                //                     "No gifts found for this event.",
-                //                     style: TextStyle(
-                //                       color: Colors.grey,
-                //                       fontSize: 14,
-                //                     ),
-                //                   ),
-                //                 ),
-                //               ],
-                //       ),
-                //     );
-                //   },
-                // ),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12.0),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.purple[50],
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ExpansionTile(
+                        tilePadding:
+                            const EdgeInsets.symmetric(horizontal: 12.0),
+                        title: Text(
+                          "${event.name} (${event.date})",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple,
+                          ),
+                        ),
+                        children: gifts.isNotEmpty
+                            ? gifts.map((gift) {
+                                return ListTile(
+                                  leading: gift.imagePath != null
+                                      ? ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          child: Image.memory(
+                                            base64Decode(gift.imagePath!),
+                                            width: 40,
+                                            height: 40,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.card_giftcard,
+                                          color: Colors.grey,
+                                          size: 40,
+                                        ),
+                                  title: Text(
+                                    gift.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    "Price: \$${gift.price}",
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                );
+                              }).toList()
+                            : [
+                                const ListTile(
+                                  title: Text(
+                                    "No gifts found for this event.",
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 10),
 
                 // My Pledged Gifts

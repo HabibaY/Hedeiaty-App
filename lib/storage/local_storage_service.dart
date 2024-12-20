@@ -300,4 +300,16 @@ class LocalStorageService {
     }
     return null;
   }
+
+  Future<List<Map<String, dynamic>>> getUnpublishedEventsForUser(
+      String userId) async {
+    final db = await database;
+
+    // Query for all unpublished events
+    return await db.query(
+      'events',
+      where: 'userId = ? AND isPublished = ?',
+      whereArgs: [userId, 0], // Filter by userId and unpublished status
+    );
+  }
 }

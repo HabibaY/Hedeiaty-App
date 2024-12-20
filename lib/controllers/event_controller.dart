@@ -196,6 +196,36 @@ class EventController {
     return eventMap != null ? Event.fromMap(eventMap) : null;
   }
 
+  Future<bool> areAllEventsAndGiftsPublished(String userId) async {
+    // Step 1: Fetch all events for the user
+    final allEvents = await _localStorageService.getEventsForUser(userId);
+
+    for (final eventData in allEvents) {
+      // Convert eventData to an Event object
+      final event = Event(
+        id: eventData['id'],
+        name: eventData['name'],
+        date: eventData['date'],
+        location: eventData['location'],
+        description: eventData['description'],
+        category: eventData['category'],
+        isPublished: eventData['isPublished'] == 1, // Convert to boolean
+        userId: eventData['userId'],
+        eId: eventData['eId'],
+      );
+
+      // Fetch associated gifts
+      final gifts = await GiftController().getGiftsForEvent(event.id!);
+
+      // Step 2: Check if the event is published and all gifts have gId
+      if (!event.isPublished || gifts.any((gift) => gift.gId == null)) {
+        return false; // Return false if any event or gift is unpublished
+      }
+    }
+
+    return true; // All events and gifts are published
+  }
+
   /// Publish events and their associated gifts
   Future<void> publishEventsAndGifts(String userId) async {
     try {
